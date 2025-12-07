@@ -47,7 +47,7 @@ class FilmARSizeSelector:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "preset": (s.resolutions,),
+                "resolution_preset": (s.resolutions,),
             }
         }
 
@@ -56,17 +56,17 @@ class FilmARSizeSelector:
     FUNCTION = "get_size"
     CATEGORY = "HackAfterDark"
 
-    def get_size(self, preset):
-        if preset.startswith("---"):
+    def get_size(self, resolution_preset):
+        if resolution_preset.startswith("---"):
             # Find the next valid resolution
-            current_index = self.resolutions.index(preset)
+            current_index = self.resolutions.index(resolution_preset)
             next_index = current_index + 1
             while self.resolutions[next_index].startswith("---"):
                 next_index += 1
-            preset = self.resolutions[next_index]
+            resolution_preset = self.resolutions[next_index]
 
         # The preset comes in as a list, so we take the first element
-        resolution_str = preset
+        resolution_str = resolution_preset
         width_str, _ = resolution_str.split(' ', 1)
         width, height = [int(x) for x in width_str.split('x')]
         return (width, height)

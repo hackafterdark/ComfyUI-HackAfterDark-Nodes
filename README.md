@@ -1,6 +1,10 @@
 # AfterDark Film AR Selector
 
-A custom ComfyUI node that provides a dropdown menu of preset resolutions for film and photography aspect ratios.
+A custom ComfyUI node that provides a dropdown menu of preset resolutions for film and photography aspect ratios. These resolutions are optimized for models with a native resolution of 1024x1024, such as Z-Image Turbo, SDXL, Pony, and Flux.
+
+## Preview
+
+![Node Preview](node_preview.png)
 
 ## Features
 
