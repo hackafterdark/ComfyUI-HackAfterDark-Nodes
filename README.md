@@ -33,6 +33,10 @@ A custom ComfyUI node that provides a dropdown menu of preset resolutions for fi
 
 A powerful and versatile custom ComfyUI node that connects to the Google Gemini API. It can be used as a sophisticated prompt builder, an image generator, or a multi-modal analysis tool.
 
+## Preview
+
+![Gemini Node Preview](gemini_node_preview.png)
+
 ## Features
 
 - **Dynamic Model Loading**: Automatically fetches and displays the latest available Gemini models from the Google API.
