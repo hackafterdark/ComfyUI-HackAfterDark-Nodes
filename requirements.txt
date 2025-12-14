@@ -1,0 +1,6 @@
+pyyaml
+requests
+torch
+numpy
+Pillow
+google-generativeai
