@@ -1,7 +1,7 @@
 [project]
 name = "hackafterdark-nodes"
 description = "Custom ComfyUI nodes featuring a film aspect ratio selector optimized for 1024x1024 models and a multi-modal Google Gemini prompter node."
-version = "1.0.0"
+version = "1.0.1"
 license = "MIT"
 requires-python = ">=3.8"
 dependencies = ["pyyaml", "requests", "torch", "numpy", "Pillow", "google-generativeai"]

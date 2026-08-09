@@ -12,8 +12,9 @@ A custom ComfyUI node that provides a dropdown menu of preset resolutions for fi
 
 ## Features
 
-- **Preset Resolutions**: Select from a curated list of common aspect ratios and resolutions.
-- **Easy to Use**: Simply select a preset from the dropdown to output the corresponding width and height.
+- **Preset Resolutions**: Select from a curated list of common aspect ratios and resolutions, including 4:5 Instagram Portrait, 3:4 / 4:3 Classic Photography, film formats, and widescreen options.
+- **Manual Numeric Override**: Easily override width and/or height with custom numeric values directly on the node (`custom_width`, `custom_height`).
+- **Easy to Use**: Simply select a preset from the dropdown or dial in custom dimensions to output the corresponding width and height.
 - **Customizable**: The list of resolutions can be easily modified in the Python script.
 
 ## Installation
@@ -24,7 +25,7 @@ A custom ComfyUI node that provides a dropdown menu of preset resolutions for fi
 ## Usage
 
 1. Add the "AfterDark Film AR Selector" node to your workflow from the "HackAfterDark" category.
-2. Select a preset from the dropdown menu.
+2. Select a preset from the dropdown menu, or specify `custom_width` and/or `custom_height` numeric values to manually override the preset.
 3. The node will output the corresponding width and height, which you can then connect to other nodes in your workflow.
 
 ---
