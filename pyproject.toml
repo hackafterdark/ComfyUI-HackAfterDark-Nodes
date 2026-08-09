@@ -32,5 +32,5 @@ Documentation = "https://github.com/hackafterdark/ComfyUI-HackAfterDark-Nodes/wi
 [tool.comfy]
 PublisherId = "hackafterdark"
 DisplayName = "HackAfterDark Custom Nodes"
-Icon = ""
+Icon = "https://raw.githubusercontent.com/hackafterdark/ComfyUI-HackAfterDark-Nodes/main/icon.png"
 requires-comfyui = ">=1.0.0"
