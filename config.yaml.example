@@ -1,0 +1,11 @@
+# Configuration for HackAfterDark Custom Nodes
+
+hack_after_dark:
+    # (Required) Your Google Gemini API key.
+    gemini_api_key: "YOUR_GEMINI_API_KEY_HERE"
+
+    # (Optional) Path to a directory containing your custom system prompt presets.
+    # If not provided, the node will use the default presets.
+    # Presets should be .json files, each with a "name" and "prompt" key.
+    # Example: C:\Users\YourUser\Documents\ComfyUI\MyGeminiPresets
+    gemini_presets_path: ""
