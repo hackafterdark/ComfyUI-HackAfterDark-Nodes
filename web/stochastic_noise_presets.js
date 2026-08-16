@@ -32,6 +32,11 @@ app.registerExtension({
         const microJitterWidget = findWidget("micro_jitter");
         const aberrationWidget = findWidget("chromatic_aberration");
         const warmthWidget = findWidget("tone_warmth");
+        const noiseLevelWidget = findWidget("noise_level");
+        const spatialResampleWidget = findWidget("spatial_resample");
+        const gammaShiftWidget = findWidget("gamma_shift");
+        const edgeSofteningWidget = findWidget("edge_softening");
+        const luminanceResponseWidget = findWidget("luminance_response");
 
         if (!presetWidget) return;
 
@@ -63,6 +68,21 @@ app.registerExtension({
                 }
                 if (warmthWidget && cfg.tone_warmth !== undefined) {
                     warmthWidget.value = cfg.tone_warmth;
+                }
+                if (noiseLevelWidget && cfg.noise_level !== undefined) {
+                    noiseLevelWidget.value = cfg.noise_level;
+                }
+                if (spatialResampleWidget && cfg.spatial_resample !== undefined) {
+                    spatialResampleWidget.value = cfg.spatial_resample;
+                }
+                if (gammaShiftWidget && cfg.gamma_shift !== undefined) {
+                    gammaShiftWidget.value = cfg.gamma_shift;
+                }
+                if (edgeSofteningWidget && cfg.edge_softening !== undefined) {
+                    edgeSofteningWidget.value = cfg.edge_softening;
+                }
+                if (luminanceResponseWidget && cfg.luminance_response !== undefined) {
+                    luminanceResponseWidget.value = cfg.luminance_response;
                 }
 
                 isUpdatingFromPreset = false;
