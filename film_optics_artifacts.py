@@ -156,13 +156,13 @@ class AfterDarkFilmOpticsArtifacts:
             else:
                 dist = torch.sqrt((1.0 - grid_x)**2 + grid_y**2)
 
-            # Create base smooth spatial falloff mask
-            base_mask = torch.clamp(1.0 - dist / 0.85, 0.0, 1.0) ** 1.8
+            # Create mathematically smooth Gaussian exponential falloff mask (C-infinity smooth, no hard edges)
+            base_mask = torch.exp(-(dist ** 2) / 0.35)
 
-            # Seed-driven organic cloud modulation map (creates natural non-uniform burn shapes)
-            low_noise = torch.rand((1, 1, max(4, H // 16), max(4, W // 16)), device=device, dtype=dtype, generator=generator)
-            noise_cloud = F.interpolate(low_noise, size=(H, W), mode="bilinear", align_corners=False).squeeze()
-            organic_mask = base_mask * (0.60 + 0.40 * noise_cloud)
+            # Ultra-smooth organic cloud modulation via bicubic spatial interpolation (eliminates grid splotches/speckles)
+            low_noise = torch.rand((1, 1, 8, 8), device=device, dtype=dtype, generator=generator)
+            noise_cloud = F.interpolate(low_noise, size=(H, W), mode="bicubic", align_corners=False).squeeze()
+            organic_mask = base_mask * (0.80 + 0.20 * noise_cloud)
 
             # Rainbow Prism spectral gradient option
             if light_leak_style == "Rainbow Prism Flare":
