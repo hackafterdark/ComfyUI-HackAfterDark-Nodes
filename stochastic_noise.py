@@ -19,6 +19,7 @@ FILM_PRESETS = {
     "None (Manual)": {},
     "Kodak Portra 400 (Color Negative)": {
         "noise_type": "gaussian",
+        "channel_mode": "color",
         "base_grain_size": 1.4,
         "base_jitter": 0.0015,
         "base_aberration": 0.0010,
@@ -26,6 +27,7 @@ FILM_PRESETS = {
     },
     "Kodak Ektachrome 100VS (Color Positive)": {
         "noise_type": "poisson",
+        "channel_mode": "color",
         "base_grain_size": 1.2,
         "base_jitter": 0.0015,
         "base_aberration": 0.0012,
@@ -33,6 +35,7 @@ FILM_PRESETS = {
     },
     "Kodak Tri-X 400 (B&W Silver Halide)": {
         "noise_type": "laplacian",
+        "channel_mode": "monochromatic",
         "base_grain_size": 1.6,
         "base_jitter": 0.0020,
         "base_aberration": 0.0,
@@ -40,6 +43,7 @@ FILM_PRESETS = {
     },
     "Fuji Velvia 50 (Fine Slide Film)": {
         "noise_type": "gaussian",
+        "channel_mode": "color",
         "base_grain_size": 1.1,
         "base_jitter": 0.0015,
         "base_aberration": 0.0008,
@@ -47,6 +51,7 @@ FILM_PRESETS = {
     },
     "Ilford HP5 Plus 400 (B&W Medium Grain)": {
         "noise_type": "multiplicative",
+        "channel_mode": "monochromatic",
         "base_grain_size": 1.5,
         "base_jitter": 0.0018,
         "base_aberration": 0.0,
@@ -54,6 +59,7 @@ FILM_PRESETS = {
     },
     "CineStill 800T (Tungsten Cinema)": {
         "noise_type": "poisson",
+        "channel_mode": "color",
         "base_grain_size": 1.5,
         "base_jitter": 0.0020,
         "base_aberration": 0.0018,
@@ -61,6 +67,7 @@ FILM_PRESETS = {
     },
     "Kodak Kodachrome 64 (Vintage Color Reversal)": {
         "noise_type": "poisson",
+        "channel_mode": "color",
         "base_grain_size": 1.05,
         "base_jitter": 0.0012,
         "base_aberration": 0.0008,
@@ -68,6 +75,7 @@ FILM_PRESETS = {
     },
     "Kodak Gold 200 (Consumer Color Negative)": {
         "noise_type": "gaussian",
+        "channel_mode": "color",
         "base_grain_size": 1.45,
         "base_jitter": 0.0016,
         "base_aberration": 0.0012,
@@ -75,6 +83,7 @@ FILM_PRESETS = {
     },
     "Fuji Pro 400H (Cool Pastel Portrait)": {
         "noise_type": "gaussian",
+        "channel_mode": "color",
         "base_grain_size": 1.35,
         "base_jitter": 0.0014,
         "base_aberration": 0.0010,
@@ -82,6 +91,7 @@ FILM_PRESETS = {
     },
     "Kodak Vision3 250D (Daylight Cinema)": {
         "noise_type": "poisson",
+        "channel_mode": "color",
         "base_grain_size": 1.25,
         "base_jitter": 0.0016,
         "base_aberration": 0.0012,
@@ -89,6 +99,7 @@ FILM_PRESETS = {
     },
     "Kodak T-Max 3200 (High-Speed B&W)": {
         "noise_type": "laplacian",
+        "channel_mode": "monochromatic",
         "base_grain_size": 2.20,
         "base_jitter": 0.0030,
         "base_aberration": 0.0,
@@ -96,6 +107,7 @@ FILM_PRESETS = {
     },
     "Ilford Delta 100 (Fine-Grain B&W)": {
         "noise_type": "multiplicative",
+        "channel_mode": "monochromatic",
         "base_grain_size": 0.95,
         "base_jitter": 0.0010,
         "base_aberration": 0.0,
@@ -103,6 +115,7 @@ FILM_PRESETS = {
     },
     "Agfa Vista 200 (Vibrant Pop Color)": {
         "noise_type": "gaussian",
+        "channel_mode": "color",
         "base_grain_size": 1.30,
         "base_jitter": 0.0015,
         "base_aberration": 0.0011,
@@ -110,6 +123,7 @@ FILM_PRESETS = {
     },
     "Polaroid 600 (Instant Analog Emulsion)": {
         "noise_type": "multiplicative",
+        "channel_mode": "color",
         "base_grain_size": 1.80,
         "base_jitter": 0.0022,
         "base_aberration": 0.0022,
@@ -117,6 +131,7 @@ FILM_PRESETS = {
     },
     "Harman Phoenix 200 (Experimental Color)": {
         "noise_type": "gaussian",
+        "channel_mode": "color",
         "base_grain_size": 1.70,
         "base_jitter": 0.0022,
         "base_aberration": 0.0020,
@@ -124,6 +139,7 @@ FILM_PRESETS = {
     },
     "Lomography Lady Grey 400 (B&W 120 Medium Format)": {
         "noise_type": "laplacian",
+        "channel_mode": "monochromatic",
         "base_grain_size": 1.30,
         "base_jitter": 0.0018,
         "base_aberration": 0.0,
@@ -131,6 +147,7 @@ FILM_PRESETS = {
     },
     "Fuji Neopan Acros 100 II (Ultra-Fine B&W)": {
         "noise_type": "laplacian",
+        "channel_mode": "monochromatic",
         "base_grain_size": 0.90,
         "base_jitter": 0.0010,
         "base_aberration": 0.0,
@@ -138,6 +155,7 @@ FILM_PRESETS = {
     },
     "Ilford Delta 3200 (High-Speed Gritty B&W)": {
         "noise_type": "laplacian",
+        "channel_mode": "monochromatic",
         "base_grain_size": 2.40,
         "base_jitter": 0.0035,
         "base_aberration": 0.0,
@@ -145,6 +163,7 @@ FILM_PRESETS = {
     },
     "Kodak Ektar 100 (Ultra-Vivid Fine Color)": {
         "noise_type": "gaussian",
+        "channel_mode": "color",
         "base_grain_size": 0.95,
         "base_jitter": 0.0010,
         "base_aberration": 0.0006,
@@ -152,6 +171,7 @@ FILM_PRESETS = {
     },
     "Kodak ColorPlus 200 (Vintage Consumer Warmth)": {
         "noise_type": "gaussian",
+        "channel_mode": "color",
         "base_grain_size": 1.40,
         "base_jitter": 0.0016,
         "base_aberration": 0.0012,
@@ -159,6 +179,7 @@ FILM_PRESETS = {
     },
     "LomoChrome Metropolis (Desaturated Experimental)": {
         "noise_type": "multiplicative",
+        "channel_mode": "color",
         "base_grain_size": 1.65,
         "base_jitter": 0.0020,
         "base_aberration": 0.0015,
@@ -166,6 +187,7 @@ FILM_PRESETS = {
     },
     "Ilford Pan F Plus 50 (Ultra-Fine Low-ISO B&W)": {
         "noise_type": "multiplicative",
+        "channel_mode": "monochromatic",
         "base_grain_size": 0.85,
         "base_jitter": 0.0008,
         "base_aberration": 0.0,
@@ -173,6 +195,7 @@ FILM_PRESETS = {
     },
     "Lomography Earl Grey 100 (Fine B&W)": {
         "noise_type": "laplacian",
+        "channel_mode": "monochromatic",
         "base_grain_size": 1.05,
         "base_jitter": 0.0012,
         "base_aberration": 0.0,
@@ -180,6 +203,7 @@ FILM_PRESETS = {
     },
     "Agfa Scala 200x (B&W Reversal Slide)": {
         "noise_type": "poisson",
+        "channel_mode": "monochromatic",
         "base_grain_size": 1.20,
         "base_jitter": 0.0015,
         "base_aberration": 0.0,

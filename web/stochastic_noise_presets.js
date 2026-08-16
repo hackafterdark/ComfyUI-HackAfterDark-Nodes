@@ -28,6 +28,7 @@ app.registerExtension({
         const presetWidget = findWidget("film_preset");
         const grainSizeWidget = findWidget("grain_size");
         const noiseTypeWidget = findWidget("noise_type");
+        const channelModeWidget = findWidget("channel_mode");
         const microJitterWidget = findWidget("micro_jitter");
         const aberrationWidget = findWidget("chromatic_aberration");
         const warmthWidget = findWidget("tone_warmth");
@@ -50,6 +51,9 @@ app.registerExtension({
                 }
                 if (noiseTypeWidget && cfg.noise_type !== undefined) {
                     noiseTypeWidget.value = cfg.noise_type;
+                }
+                if (channelModeWidget && cfg.channel_mode !== undefined) {
+                    channelModeWidget.value = cfg.channel_mode;
                 }
                 if (microJitterWidget && cfg.base_jitter !== undefined) {
                     microJitterWidget.value = cfg.base_jitter;
