@@ -621,13 +621,16 @@ class AfterDarkStochasticNoise:
             tensor_nchw = F.grid_sample(tensor_nchw, warped_grid, mode="bilinear", padding_mode="border", align_corners=False)
             out_image = tensor_nchw.permute(0, 2, 3, 1)
 
-        # 6. Subtle Chromatic Aberration (sub-pixel channel offset)
+        # 6. Subtle Chromatic Aberration (sub-pixel channel offset with edge replication)
         if eff_chromatic_aberration > 0.0 and C >= 3:
             shift_pixels = max(1, int(eff_chromatic_aberration * min(H, W)))
-            r_ch = torch.roll(out_image[..., 0], shifts=(shift_pixels, shift_pixels), dims=(1, 2))
-            b_ch = torch.roll(out_image[..., 2], shifts=(-shift_pixels, -shift_pixels), dims=(1, 2))
-            out_image[..., 0] = r_ch
-            out_image[..., 2] = b_ch
+            # Pad and slice Red channel (shift right & down)
+            r_padded = F.pad(out_image[..., 0].unsqueeze(1), (shift_pixels, 0, shift_pixels, 0), mode="replicate")
+            out_image[..., 0] = r_padded[:, 0, :H, :W]
+
+            # Pad and slice Blue channel (shift left & up)
+            b_padded = F.pad(out_image[..., 2].unsqueeze(1), (0, shift_pixels, 0, shift_pixels), mode="replicate")
+            out_image[..., 2] = b_padded[:, 0, shift_pixels:shift_pixels+H, shift_pixels:shift_pixels+W]
 
         # 7. Film Grain / Stochastic Noise Generation
         if noise_level > 0.0:
