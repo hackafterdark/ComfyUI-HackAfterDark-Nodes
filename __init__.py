@@ -45,9 +45,15 @@ def save_settings(data):
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY']
 
+from .stochastic_noise import FILM_PRESETS
+
 @server.PromptServer.instance.routes.get("/hackafterdark/settings")
 async def get_settings(request):
     return web.json_response(load_settings())
+
+@server.PromptServer.instance.routes.get("/hackafterdark/film_presets")
+async def get_film_presets(request):
+    return web.json_response(FILM_PRESETS)
 
 @server.PromptServer.instance.routes.post("/hackafterdark/settings")
 async def post_settings(request):

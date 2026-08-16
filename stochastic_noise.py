@@ -246,6 +246,12 @@ class AfterDarkStochasticNoise:
                     "step": 0.05,
                 }),
                 "luminance_response": (["Film (Midtone & Shadow)", "Digital (Shadow Heavy)", "Uniform (Flat)"], {"default": "Film (Midtone & Shadow)"}),
+                "tone_warmth": ("FLOAT", {
+                    "default": 0.0,
+                    "min": -0.10,
+                    "max": 0.10,
+                    "step": 0.001,
+                }),
             },
             "optional": {
                 "seed": ("INT", {
@@ -276,6 +282,7 @@ class AfterDarkStochasticNoise:
         gamma_shift=0.98,
         edge_softening=0.10,
         luminance_response="Film (Midtone & Shadow)",
+        tone_warmth=0.0,
         seed=0,
         luminance_weight=None
     ):
@@ -293,20 +300,20 @@ class AfterDarkStochasticNoise:
 
         if film_preset != "None (Manual)" and preset_cfg:
             eff_grain_size = grain_size * preset_cfg.get("base_grain_size", 1.0) * format_scale
-            eff_micro_jitter = max(micro_jitter, preset_cfg.get("base_jitter", 0.0015))
-            eff_chromatic_aberration = max(chromatic_aberration, preset_cfg.get("base_aberration", 0.0010))
-            tone_warmth = preset_cfg.get("tone_warmth", 0.0)
+            eff_micro_jitter = micro_jitter if micro_jitter != 0.0015 else preset_cfg.get("base_jitter", 0.0015)
+            eff_chromatic_aberration = chromatic_aberration if chromatic_aberration != 0.0010 else preset_cfg.get("base_aberration", 0.0010)
+            eff_tone_warmth = tone_warmth if tone_warmth != 0.0 else preset_cfg.get("tone_warmth", 0.0)
         else:
             eff_grain_size = grain_size * format_scale
             eff_micro_jitter = micro_jitter
             eff_chromatic_aberration = chromatic_aberration
-            tone_warmth = 0.0
+            eff_tone_warmth = tone_warmth
 
         if (
             noise_level <= 0.0
             and eff_micro_jitter <= 0.0
             and eff_chromatic_aberration <= 0.0
-            and tone_warmth == 0.0
+            and eff_tone_warmth == 0.0
             and spatial_resample <= 0.0
             and gamma_shift == 1.0
             and edge_softening <= 0.0
@@ -343,9 +350,9 @@ class AfterDarkStochasticNoise:
             out_image = torch.lerp(out_image, blurred_img, edge_softening * 0.3)
 
         # 4. Subtle Film Tone Tint
-        if tone_warmth != 0.0 and C >= 3:
-            out_image[..., 0] = out_image[..., 0] + tone_warmth
-            out_image[..., 2] = out_image[..., 2] - tone_warmth
+        if eff_tone_warmth != 0.0 and C >= 3:
+            out_image[..., 0] = out_image[..., 0] + eff_tone_warmth
+            out_image[..., 2] = out_image[..., 2] - eff_tone_warmth
 
         # 5. Spatial Micro-Jitter (sub-pixel grid warping to break VAE lattice signatures)
         if eff_micro_jitter > 0.0:
