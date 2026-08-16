@@ -8,9 +8,7 @@ dependencies = ["pyyaml", "requests", "torch", "numpy", "Pillow", "google-genera
 
 classifiers = [
     "Operating System :: OS Independent",
-    "Environment :: GPU :: NVIDIA CUDA",
-    "Environment :: GPU :: AMD ROCm",
-    "Environment :: GPU :: Apple Metal",
+    "Programming Language :: Python :: 3",
 ]
 
 [project.urls]
