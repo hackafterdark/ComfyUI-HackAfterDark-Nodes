@@ -602,7 +602,7 @@ class AfterDarkStochasticNoise:
             out_image[..., 0] = out_image[..., 0] + eff_tone_warmth
             out_image[..., 2] = out_image[..., 2] - eff_tone_warmth
 
-        # 5. Spatial Micro-Jitter (sub-pixel grid warping to break VAE lattice signatures)
+        # 5. High-Frequency Micro-Jitter (sub-pixel grid perturbation to break VAE lattice without wavy face distortion)
         if eff_micro_jitter > 0.0:
             tensor_nchw = out_image.permute(0, 3, 1, 2)
             
@@ -613,7 +613,10 @@ class AfterDarkStochasticNoise:
             )
             grid = torch.stack((grid_x, grid_y), dim=-1).unsqueeze(0).repeat(B, 1, 1, 1)
 
-            jitter_raw = (torch.rand((B, max(1, H // 8), max(1, W // 8), 2), device=out_image.device, generator=generator) * 2.0 - 1.0) * eff_micro_jitter
+            # Use high-frequency grid (H//2, W//2) with sub-pixel scaling to prevent low-frequency wavy ripples
+            grid_h = max(2, H // 2)
+            grid_w = max(2, W // 2)
+            jitter_raw = (torch.rand((B, grid_h, grid_w, 2), device=out_image.device, generator=generator) * 2.0 - 1.0) * (eff_micro_jitter * 0.35)
             jitter_raw = jitter_raw.permute(0, 3, 1, 2)
             jitter_smooth = F.interpolate(jitter_raw, size=(H, W), mode="bilinear", align_corners=False).permute(0, 2, 3, 1)
 
