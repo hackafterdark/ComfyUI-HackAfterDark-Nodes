@@ -25,8 +25,8 @@ class TestNewFilmNodes(unittest.TestCase):
 
     def test_optics_seed_variations(self):
         node = AfterDarkFilmOpticsArtifacts()
-        (out1,) = node.apply_artifacts(self.input_image, light_leak_style="Rainbow Prism Flare", leak_location="Random / Scattered", seed=101)
-        (out2,) = node.apply_artifacts(self.input_image, light_leak_style="Rainbow Prism Flare", leak_location="Random / Scattered", seed=202)
+        (out1,) = node.apply_artifacts(self.input_image, light_leak_style="Anamorphic Prism Diffraction", leak_location="Random / Scattered", seed=101)
+        (out2,) = node.apply_artifacts(self.input_image, light_leak_style="Anamorphic Prism Diffraction", leak_location="Random / Scattered", seed=202)
         # Verify that changing seed produces different spatial patterns
         self.assertFalse(torch.allclose(out1, out2))
 

@@ -28,7 +28,7 @@ class AfterDarkFilmOpticsArtifacts:
                         "Tungsten Blue Burn",
                         "Vintage Magenta Leak",
                         "Sunburst Golden Flare",
-                        "Rainbow Prism Flare",
+                        "Anamorphic Prism Diffraction",
                         "Dual-Tone Cyan & Amber",
                         "Random Organic Multi-Layer"
                     ],
@@ -145,7 +145,7 @@ class AfterDarkFilmOpticsArtifacts:
                 outer_tint = torch.tensor([1.0, 0.70, 0.15], device=device, dtype=dtype)
             elif light_leak_style == "Dual-Tone Cyan & Amber":
                 outer_tint = torch.tensor([0.10, 0.85, 0.95], device=device, dtype=dtype)
-            elif light_leak_style in ("Random Organic Multi-Layer", "Rainbow Prism Flare"):
+            elif light_leak_style in ("Random Organic Multi-Layer", "Anamorphic Prism Diffraction"):
                 if generator is not None:
                     rand_color = torch.rand((3,), device=device, dtype=dtype, generator=generator)
                 else:
@@ -283,14 +283,19 @@ class AfterDarkFilmOpticsArtifacts:
                 outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
                 core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
 
-            # Spectral color gradient blending (Outer Fringe -> White Hot Core)
-            if light_leak_style == "Rainbow Prism Flare":
-                rainbow_tint = torch.stack([
-                    0.5 + 0.5 * torch.sin(dist * 6.28 + 0.0),
-                    0.5 + 0.5 * torch.sin(dist * 6.28 + 2.09),
-                    0.5 + 0.5 * torch.sin(dist * 6.28 + 4.18),
-                ], dim=-1)  # [H, W, 3]
-                leak_color = rainbow_tint
+            # Spectral color gradient blending
+            if light_leak_style == "Anamorphic Prism Diffraction":
+                # Authentic optical glass refraction: Golden Core -> Rose Gold -> Anamorphic Cyan Fringe
+                t = torch.clamp(dist / 0.85, 0.0, 1.0)
+                col_core = torch.tensor([1.0, 0.85, 0.35], device=device, dtype=dtype)
+                col_mid = torch.tensor([0.95, 0.40, 0.60], device=device, dtype=dtype)
+                col_edge = torch.tensor([0.25, 0.65, 0.95], device=device, dtype=dtype)
+
+                w1 = torch.clamp(1.0 - t * 2.0, 0.0, 1.0)
+                w2 = torch.clamp(1.0 - torch.abs(t - 0.5) * 2.0, 0.0, 1.0)
+                w3 = torch.clamp((t - 0.5) * 2.0, 0.0, 1.0)
+
+                leak_color = (w1.unsqueeze(-1) * col_core + w2.unsqueeze(-1) * col_mid + w3.unsqueeze(-1) * col_edge)
             else:
                 leak_color = (1.0 - core_mask.unsqueeze(-1)) * outer_tint.view(1, 1, 3) + core_mask.unsqueeze(-1) * hot_core_tint.view(1, 1, 3)
 
