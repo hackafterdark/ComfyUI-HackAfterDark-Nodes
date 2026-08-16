@@ -100,7 +100,7 @@ If the node fails to load with a `ModuleNotFoundError`, you can fix it by manual
 
 ---
 
-# AfterDark Film Grain
+# AfterDark Film Grain & Emulsion
 
 A lightweight post-processing node that injects authentic analog film grain, micro-spatial grid jitter, and optical lens aberration into image tensors. Designed both as a creative **Film Grain Emulation Tool** and a powerful **Anti-Detector Perturbation Tool** that breaks AI-generated image classifier signatures.
 
