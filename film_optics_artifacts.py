@@ -41,6 +41,7 @@ class AfterDarkFilmOpticsArtifacts:
                     [
                         "Random / Scattered",
                         "Dual-Border Holga Leak",
+                        "Triple-Chamber Solarized Burn",
                         "Wide Gate Leak (Asymmetric Bar)",
                         "Vertical Curtain Gap",
                         "Bottom Frame Burn",
@@ -170,7 +171,7 @@ class AfterDarkFilmOpticsArtifacts:
 
             # Primary Leak Distance & Mask Geometry Calculation
             if leak_location == "Dual-Border Holga Leak":
-                # Inspired directly by the Buddha statue reference photo:
+                # Inspired directly by Buddha statue reference photo:
                 # 1. Intense bottom-left golden flare blob
                 # 2. Right-side vertical golden light column
                 # 3. Soft top-sky magenta fogging
@@ -186,8 +187,26 @@ class AfterDarkFilmOpticsArtifacts:
                 core_mask = torch.clamp(mask_left * 1.5 + mask_right * 0.8 - 0.4, 0.0, 1.0)
                 dist = torch.sqrt(torch.clamp(1.0 - outer_mask, 1e-4, 1.0))
 
+            elif leak_location == "Triple-Chamber Solarized Burn":
+                # Inspired directly by Photo 1 (Tropical Palms):
+                # 1. Left crimson red gate bar (x ~ 0.05)
+                # 2. Center white-hot yellow blowout (x ~ 0.45, y ~ 0.30)
+                # 3. Right edge cool blue/magenta fogging (x ~ 0.90)
+                dist_left = torch.abs(grid_x - (0.06 + jitter_x * 0.2)) / (0.10 * scale_x)
+                mask_left = torch.exp(-(dist_left**2) / 0.35)
+
+                dist_center = torch.sqrt(((grid_x - (0.45 + jitter_x * 0.3)) / (0.45 * scale_x))**2 + ((grid_y - (0.25 + jitter_y * 0.3)) / (0.40 * scale_y))**2)
+                mask_center = torch.exp(-(dist_center**2) / 0.35) * 1.3
+
+                dist_right = torch.abs(grid_x - (0.92 + jitter_x * 0.2)) / (0.12 * scale_x)
+                mask_right = torch.exp(-(dist_right**2) / 0.35) * (0.5 + 0.5 * (1.0 - grid_y))
+
+                outer_mask = torch.clamp(mask_left + mask_center + mask_right, 0.0, 1.0) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.clamp(mask_center * 1.4 - 0.4, 0.0, 1.0)
+                dist = torch.sqrt(torch.clamp(1.0 - outer_mask, 1e-4, 1.0))
+
             elif leak_location in ("Wide Gate Leak (Asymmetric Bar)", "Vertical Curtain Gap"):
-                # Inspired directly by user reference images (Image 1 & 2):
+                # Inspired directly by user reference images:
                 # 1. Asymmetric sharp right gate edge (shadow of metal gate) + soft left bleed
                 # 2. Vertical intensity modulation & gap break in upper-middle
                 # 3. Secondary subtle strip on opposite edge
@@ -201,13 +220,13 @@ class AfterDarkFilmOpticsArtifacts:
                 right_edge = torch.clamp(1.0 - (dx - 0.2) * 14.0, 0.0, 1.0)
                 asymmetric_profile = left_edge * right_edge
 
-                # Vertical intensity modulation & gap break (inspired by Image 1 break in upper middle)
+                # Vertical intensity modulation & gap break
                 vert_modulation = 0.55 + 0.45 * torch.sin(grid_y * 3.14159 * 2.5 + jitter_y * 10.0)
                 gap_break = torch.clamp(1.0 - torch.exp(-((grid_y - (0.35 + jitter_y * 0.2))**2) / 0.015) * 0.85, 0.15, 1.0)
 
                 bar_mask = asymmetric_profile * vert_modulation * gap_break
 
-                # Secondary thin strip on opposite side (like Image 1 near bus!)
+                # Secondary thin strip on opposite side
                 sec_x = 0.15 - jitter_x * 0.3
                 sec_dist = torch.abs(grid_x - sec_x) / 0.06
                 sec_mask = torch.exp(-(sec_dist**2) / 0.35) * 0.35 * vert_modulation
@@ -217,7 +236,7 @@ class AfterDarkFilmOpticsArtifacts:
                 dist = torch.sqrt(torch.clamp(1.0 - outer_mask, 1e-4, 1.0))
 
             elif leak_location == "Bottom Frame Burn":
-                # Inspired by Ref Image 1 & 3: Upward fiery flare from bottom edge with uneven height
+                # Upward fiery flare from bottom edge with uneven height
                 dist_y = torch.clamp(1.0 - grid_y - jitter_y, 0.0, 1.0) / scale_y
                 dist_x = torch.abs(grid_x - (0.4 + jitter_x)) / scale_x
                 dist = torch.sqrt(dist_x**2 + dist_y**2)
@@ -225,7 +244,7 @@ class AfterDarkFilmOpticsArtifacts:
                 core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
 
             elif leak_location == "Dual-Edge Cross Burn":
-                # Inspired by Ref Image 2: Two opposing leaks (bottom flare + top corner leak)
+                # Two opposing leaks (bottom flare + top corner leak)
                 dist1 = torch.sqrt(((grid_x - (0.1 + jitter_x)) / scale_x)**2 + ((grid_y - (0.9 + jitter_y)) / scale_y)**2)
                 dist2 = torch.sqrt(((grid_x - (0.9 - jitter_x)) / scale_x)**2 + ((grid_y - (0.1 - jitter_y)) / scale_y)**2)
                 dist = torch.min(dist1, dist2)
