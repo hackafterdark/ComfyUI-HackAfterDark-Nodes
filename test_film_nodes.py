@@ -23,6 +23,13 @@ class TestNewFilmNodes(unittest.TestCase):
         self.assertEqual(out.shape, self.input_image.shape)
         self.assertTrue((out >= 0.0).all() and (out <= 1.0).all())
 
+    def test_optics_seed_variations(self):
+        node = AfterDarkFilmOpticsArtifacts()
+        (out1,) = node.apply_artifacts(self.input_image, light_leak_style="Rainbow Prism Flare", leak_location="Random / Scattered", seed=101)
+        (out2,) = node.apply_artifacts(self.input_image, light_leak_style="Rainbow Prism Flare", leak_location="Random / Scattered", seed=202)
+        # Verify that changing seed produces different spatial patterns
+        self.assertFalse(torch.allclose(out1, out2))
+
     def test_film_halation(self):
         node = AfterDarkFilmHalation()
         # Create image with bright specular highlight in center
