@@ -106,11 +106,11 @@ A lightweight post-processing node that injects authentic analog film grain, mic
 
 ## Features
 
-- **Film Stock Presets**: 24 built-in emulation profiles modeled after iconic DxO FilmPack and classic analog film stocks:
-  * **Color Negative**: Kodak Portra 400, Kodak Gold 200, Kodak Ektar 100, Kodak ColorPlus 200, Fuji Pro 400H, Agfa Vista 200, Harman Phoenix 200 (Experimental), LomoChrome Metropolis
+- **Film Stock Presets**: 32 built-in emulation profiles modeled after iconic DxO FilmPack and classic analog film stocks:
+  * **Color Negative**: Kodak Portra 400, Kodak Portra 800, Kodak Gold 200, Kodak Ektar 100, Kodak ColorPlus 200, Kodak Pro Image 100, Fuji Pro 400H, Fuji Superia X-TRA 400, Agfa Vista 200, Harman Phoenix 200 (Experimental), LomoChrome Metropolis
   * **Color Reversal / Slide**: Kodak Ektachrome 100VS, Fuji Velvia 50, Kodak Kodachrome 64, Agfa Scala 200x (B&W Reversal)
-  * **Cinema Motion Picture**: CineStill 800T (Tungsten), Kodak Vision3 250D (Daylight)
-  * **B&W Silver Halide**: Kodak Tri-X 400, Kodak T-Max 3200, Fuji Neopan Acros 100 II, Ilford HP5 Plus 400, Ilford Delta 100, Ilford Delta 3200, Ilford Pan F Plus 50, Lomography Lady Grey 400 (120 Medium Format), Lomography Earl Grey 100
+  * **Cinema Motion Picture**: CineStill 800T (Tungsten), CineStill 400D (Daylight), Kodak Vision3 250D (Daylight)
+  * **B&W Silver Halide**: Kodak Tri-X 400, Kodak T-Max 3200, Fuji Neopan Acros 100 II, Ilford HP5 Plus 400, Ilford Delta 100, Ilford Delta 3200, Ilford Pan F Plus 50, Fomapan 400, Rollei Retro 80S (Infrared), ADOX CHS 100 II, Lomography Potsdam Kino 100, Lomography Lady Grey 400 (120 Medium Format), Lomography Earl Grey 100
   * **Instant Analog**: Polaroid 600 Emulsion
 - **Physical Noise Distributions**: `gaussian` (standard), `poisson` (shot noise), `multiplicative` (dye cloud), and `laplacian` (heavy-tailed halide spikes).
 - **Luminance Exposure Response**: Choice of exposure modulation profiles:
@@ -137,6 +137,39 @@ Without factoring in local pixel luminance, noise applied equally across bright 
 | **`Film (Midtone & Shadow)`** *(Default)* | **Analog Silver Halide Emulsion**: Grain density peaks in dark shadows and midtones ($L = 0.1 \to 0.6$) and rolls off smoothly in bright highlights ($L > 0.85$). | **Best for Authentic Film Look**: Use this for film stock emulations (Portra, Ektachrome, Tri-X). Keeps bright skies and specular highlights clean while giving shadows and skin midtones rich, organic film texture. |
 | **`Digital (Shadow Heavy)`** | **Digital Sensor Thermal Noise**: Low Signal-to-Noise Ratio (SNR) in dark current causes sensor read noise to dominate dark shadow regions. | **Best for Digital High-ISO Look**: Use when emulating low-light photography shot on digital camera sensors (e.g. DSLR/mirrorless at ISO 6400). Concentrates noise in deep darks ($L < 0.30$). |
 | **`Uniform (Flat)`** | **Mathematical Uniform Overlay**: Noise is applied with equal intensity across all pixels, regardless of brightness. | **Best for Anti-Detector Perturbations**: Use when your primary goal is disrupting Vision Transformer (ViT) patch classifiers across every spatial token, or for creative graphic texturing. |
+
+---
+
+# AfterDark Film Optics & Artifacts
+
+Simulates physical camera optical lens falloff, film gate framing, and procedural light leaks.
+
+## Features
+- **Procedural Light Leaks**: Generated entirely via PyTorch tensor math—no overlay images required! Supports `C-41 Orange Flare`, `Tungsten Blue Burn`, `Vintage Magenta Leak`, and `Random Light Leak`.
+- **Flexible Leak Placement**: Position leaks along corners or edge strips (`Top Left Corner`, `Top Right Corner`, `Bottom Left Corner`, `Bottom Right Corner`, `Left Edge Strip`, `Right Edge Strip`).
+- **Physical Lens Vignetting**: Physically accurate radial light falloff ($\cos^4 \theta$ optical law) with adjustable intensity and falloff exponents.
+- **Film Gate Borders**: Soft film frame gate shading.
+
+---
+
+# AfterDark Film Halation & Bloom
+
+Simulates specular highlight red/orange halation diffusion caused by light reflecting off the film pressure plate back into emulsion layers (famous in *CineStill 800T* and *Harman Phoenix 200*).
+
+## Features
+- **Specular Highlight Isolation**: Adjustable threshold to isolate bright light sources ($L > 0.85$).
+- **Multi-Scale Gaussian Bloom**: PyTorch spatial downsampling pyramid for resolution-independent diffusion blur.
+- **Authentic Spectral Tints**: `Red / Orange (CineStill 800T)`, `Golden Amber`, `Warm Yellow`, and `Soft White`.
+
+---
+
+# AfterDark Film Color Split & Clarity
+
+Split toning and local micro-contrast enhancement for cinematic film grading.
+
+## Features
+- **Split Toning**: Independent shadow tint (`Teal / Cyan`, `Deep Blue`, `Emerald Green`, `Warm Sepia`) and highlight tint (`Golden Amber`, `Warm Yellow`, `Peach Rose`, `Cool Cyan`).
+- **Micro-Contrast (Clarity)**: High-pass spatial frequency filter to boost local texture without clipping global exposure.
 
 ---
 

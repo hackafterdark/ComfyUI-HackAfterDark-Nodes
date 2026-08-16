@@ -16,9 +16,12 @@ from .film_ar_size_selector import NODE_CLASS_MAPPINGS as film_ar_mappings, NODE
 from .gemini_image_prompt_builder import NODE_CLASS_MAPPINGS as gemini_mappings, NODE_DISPLAY_NAME_MAPPINGS as gemini_display_mappings
 from .stochastic_noise import NODE_CLASS_MAPPINGS as noise_mappings, NODE_DISPLAY_NAME_MAPPINGS as noise_display_mappings
 from .film_lut import NODE_CLASS_MAPPINGS as lut_mappings, NODE_DISPLAY_NAME_MAPPINGS as lut_display_mappings
+from .film_optics_artifacts import NODE_CLASS_MAPPINGS as optics_mappings, NODE_DISPLAY_NAME_MAPPINGS as optics_display_mappings
+from .film_halation import NODE_CLASS_MAPPINGS as halation_mappings, NODE_DISPLAY_NAME_MAPPINGS as halation_display_mappings
+from .film_color_split import NODE_CLASS_MAPPINGS as split_mappings, NODE_DISPLAY_NAME_MAPPINGS as split_display_mappings
 
-NODE_CLASS_MAPPINGS = {**film_ar_mappings, **gemini_mappings, **noise_mappings, **lut_mappings}
-NODE_DISPLAY_NAME_MAPPINGS = {**film_ar_display_mappings, **gemini_display_mappings, **noise_display_mappings, **lut_display_mappings}
+NODE_CLASS_MAPPINGS = {**film_ar_mappings, **gemini_mappings, **noise_mappings, **lut_mappings, **optics_mappings, **halation_mappings, **split_mappings}
+NODE_DISPLAY_NAME_MAPPINGS = {**film_ar_display_mappings, **gemini_display_mappings, **noise_display_mappings, **lut_display_mappings, **optics_display_mappings, **halation_display_mappings, **split_display_mappings}
 
 import os
 import json
