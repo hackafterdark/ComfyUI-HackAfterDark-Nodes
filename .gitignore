@@ -89,3 +89,7 @@ venv.bak/
 # OS-specific
 .DS_Store
 Thumbs.db
+
+# Sensitive local settings & API keys
+hackafterdark_settings.json
+*_settings.json
