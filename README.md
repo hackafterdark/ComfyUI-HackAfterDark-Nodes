@@ -147,14 +147,13 @@ Simulates physical camera optical lens falloff, film gate framing, and procedura
 ## Features
 - **Procedural Organic Light Leaks**: Generated entirely via PyTorch tensor math—no overlay images required! Features 10 authentic real-world film stock leak styles: `C-41 Fiery Core Flare` (red-orange to white-hot yellow core), `Crimson Red Base Burn` (acetate backing leak), `Tungsten Blue Burn` (front-element leak), `Vintage Magenta Leak` (expired film fog), `Sunburst Golden Flare`, `E-6 Slide Solarized Yellow`, `Overexposed White-Hot Flare`, `Anamorphic Prism Diffraction` (glass refraction: Amber $\to$ Rose $\to$ Cyan), `Dual-Tone Cyan & Amber`, and `Random Organic Multi-Layer`.
 - **Realistic Film Burn Patterns**: Modeled directly after authentic analog camera light leaks:
-  * **`Triple-Chamber Solarized Burn`**: Modeled after heavy tropical beach overexposures featuring a sharp crimson gate bar on the left edge, a massive white-hot solarized yellow blowout in the center sky, and cool blue/magenta edge fogging on the right.
-  * **`Dual-Border Holga Leak`**: Modeled after plastic toy cameras (Holga/LOMO) with simultaneous left-side golden flare blob, right-side vertical light column, and top-sky magenta fogging.
-  * **`Wide Gate Leak (Asymmetric Bar)`**: Asymmetric wide vertical light band with a sharp right edge boundary (metal film gate shadow), soft left gradient, vertical intensity modulation, mid-strip gap breaks, and a secondary sub-strip flare on the opposite edge.
-  * **`Vertical Curtain Gap`**: Vertical light seam running top-to-bottom with soft edge gradients and vertical intensity fluctuations.
-  * **`Bottom Frame Burn`**: Fiery upward orange/yellow light flare originating from the bottom edge of the film frame.
-  * **`Dual-Edge Cross Burn`**: Multi-layer opposing leaks (warm bottom flare combined with cool upper corner burn).
-  * **`Random / Scattered`**, `Center Specular Flare`, `Diagonal Streak`, `Sprocket Hole Leaks`, corners, and edge strips.
-- **Seed-Driven Spatial & Organic Randomness**: Setting a seed dynamically randomizes center offsets, ellipse scale/aspect ratios, and non-uniform organic burn cloud shapes!
+  * **`Triple-Chamber Solarized Burn`**: Heavy tropical overexposures (crimson gate bar + center white-hot blowout + right blue/magenta fogging).
+  * **`Dual-Border Holga Leak`**: Toy camera dual-spool leak (bottom-left golden flare + right vertical column + top sky fog).
+  * **`Wide Gate Leak (Asymmetric Bar)`**: Asymmetric wide vertical light band with sharp metal film gate shadow boundary and mid-strip gap breaks.
+  * **`First Frame Load Leak (Full Wash)`**: Heavy upper and side fogging caused by exposing the film leader while loading into the camera.
+  * **`Anamorphic Lens Flare Streak`**: Horizontal optical streak flare across the frame center.
+  * **`Vertical Curtain Gap`**, **`Bottom Frame Burn`**, **`Dual-Edge Cross Burn`**, corners, edge strips, and sprocket hole leaks.
+- **Dynamic `Random / Scattered` Mode**: Selecting `Random / Scattered` with a seed dynamically samples across **ALL 17 location templates** with unique spatial jitter, scaling, and bicubic organic noise cloud shapes on every single run!
 - **Physical Lens Vignetting**: Physically accurate radial light falloff ($\cos^4 \theta$ optical law) with adjustable intensity and falloff exponents.
 - **Film Gate Borders**: Soft film frame gate shading.
 
