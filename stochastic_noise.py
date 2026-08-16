@@ -59,6 +59,62 @@ FILM_PRESETS = {
         "base_aberration": 0.0018,
         "tone_warmth": -0.015,  # subtle tungsten cool tint
     },
+    "Kodak Kodachrome 64 (Vintage Color Reversal)": {
+        "noise_type": "poisson",
+        "base_grain_size": 1.05,
+        "base_jitter": 0.0012,
+        "base_aberration": 0.0008,
+        "tone_warmth": 0.010,
+    },
+    "Kodak Gold 200 (Consumer Color Negative)": {
+        "noise_type": "gaussian",
+        "base_grain_size": 1.45,
+        "base_jitter": 0.0016,
+        "base_aberration": 0.0012,
+        "tone_warmth": 0.025,
+    },
+    "Fuji Pro 400H (Cool Pastel Portrait)": {
+        "noise_type": "gaussian",
+        "base_grain_size": 1.35,
+        "base_jitter": 0.0014,
+        "base_aberration": 0.0010,
+        "tone_warmth": -0.010,
+    },
+    "Kodak Vision3 250D (Daylight Cinema)": {
+        "noise_type": "poisson",
+        "base_grain_size": 1.25,
+        "base_jitter": 0.0016,
+        "base_aberration": 0.0012,
+        "tone_warmth": 0.0,
+    },
+    "Kodak T-Max 3200 (High-Speed B&W)": {
+        "noise_type": "laplacian",
+        "base_grain_size": 2.20,
+        "base_jitter": 0.0030,
+        "base_aberration": 0.0,
+        "tone_warmth": 0.0,
+    },
+    "Ilford Delta 100 (Fine-Grain B&W)": {
+        "noise_type": "multiplicative",
+        "base_grain_size": 0.95,
+        "base_jitter": 0.0010,
+        "base_aberration": 0.0,
+        "tone_warmth": 0.0,
+    },
+    "Agfa Vista 200 (Vibrant Pop Color)": {
+        "noise_type": "gaussian",
+        "base_grain_size": 1.30,
+        "base_jitter": 0.0015,
+        "base_aberration": 0.0011,
+        "tone_warmth": 0.015,
+    },
+    "Polaroid 600 (Instant Analog Emulsion)": {
+        "noise_type": "multiplicative",
+        "base_grain_size": 1.80,
+        "base_jitter": 0.0022,
+        "base_aberration": 0.0022,
+        "tone_warmth": 0.008,
+    },
 }
 
 FORMAT_SCALERS = {
@@ -80,14 +136,12 @@ class AfterDarkStochasticNoise:
                     "min": 0.0,
                     "max": 0.20,
                     "step": 0.001,
-                    "display": "slider"
                 }),
                 "grain_size": ("FLOAT", {
                     "default": 1.5,
                     "min": 0.5,
                     "max": 5.0,
                     "step": 0.1,
-                    "display": "slider"
                 }),
                 "noise_type": (["gaussian", "poisson", "multiplicative", "laplacian"], {"default": "gaussian"}),
                 "channel_mode": (["monochromatic", "color"], {"default": "monochromatic"}),
@@ -96,14 +150,30 @@ class AfterDarkStochasticNoise:
                     "min": 0.0,
                     "max": 0.010,
                     "step": 0.0005,
-                    "display": "slider"
                 }),
                 "chromatic_aberration": ("FLOAT", {
                     "default": 0.0010,
                     "min": 0.0,
                     "max": 0.005,
                     "step": 0.0005,
-                    "display": "slider"
+                }),
+                "spatial_resample": ("FLOAT", {
+                    "default": 0.015,
+                    "min": 0.0,
+                    "max": 0.05,
+                    "step": 0.005,
+                }),
+                "gamma_shift": ("FLOAT", {
+                    "default": 0.98,
+                    "min": 0.90,
+                    "max": 1.10,
+                    "step": 0.005,
+                }),
+                "edge_softening": ("FLOAT", {
+                    "default": 0.10,
+                    "min": 0.0,
+                    "max": 1.0,
+                    "step": 0.05,
                 }),
                 "luminance_weight": ("BOOLEAN", {"default": True}),
             },
@@ -132,6 +202,9 @@ class AfterDarkStochasticNoise:
         channel_mode="monochromatic",
         micro_jitter=0.0015,
         chromatic_aberration=0.0010,
+        spatial_resample=0.015,
+        gamma_shift=0.98,
+        edge_softening=0.10,
         luminance_weight=True,
         seed=0
     ):
@@ -157,6 +230,9 @@ class AfterDarkStochasticNoise:
             and eff_micro_jitter <= 0.0
             and eff_chromatic_aberration <= 0.0
             and tone_warmth == 0.0
+            and spatial_resample <= 0.0
+            and gamma_shift == 1.0
+            and edge_softening <= 0.0
         ):
             return (image,)
 
@@ -166,12 +242,35 @@ class AfterDarkStochasticNoise:
             generator = torch.Generator(device=device_type)
             generator.manual_seed(seed)
 
-        # 1. Subtle Film Tone Tint
+        # 1. Spatial Resampling Jitter (rescales down slightly & upscales back using bicubic to strip VAE high-freq harmonics)
+        if spatial_resample > 0.0:
+            scale_fac = 1.0 - spatial_resample
+            low_h = max(1, int(H * scale_fac))
+            low_w = max(1, int(W * scale_fac))
+            tensor_nchw = out_image.permute(0, 3, 1, 2)
+            resampled = F.interpolate(tensor_nchw, size=(low_h, low_w), mode="bilinear", align_corners=False)
+            resampled = F.interpolate(resampled, size=(H, W), mode="bicubic", align_corners=False)
+            out_image = resampled.permute(0, 2, 3, 1)
+
+        # 2. Non-Linear Gamma Curve Shift (disrupts VAE Swish/SiLU color manifold activation signatures)
+        if gamma_shift != 1.0:
+            out_image = torch.pow(torch.clamp(out_image, 1e-6, 1.0), gamma_shift)
+
+        # 3. Micro Edge Softening (softens hyper-crisp synthetic machine edges)
+        if edge_softening > 0.0:
+            tensor_nchw = out_image.permute(0, 3, 1, 2)
+            kernel = torch.tensor([[1., 2., 1.], [2., 4., 2.], [1., 2., 1.]], device=out_image.device, dtype=out_image.dtype) / 16.0
+            kernel = kernel.expand(C, 1, 3, 3)
+            blurred_nchw = F.conv2d(tensor_nchw, kernel, padding=1, groups=C)
+            blurred_img = blurred_nchw.permute(0, 2, 3, 1)
+            out_image = torch.lerp(out_image, blurred_img, edge_softening * 0.3)
+
+        # 4. Subtle Film Tone Tint
         if tone_warmth != 0.0 and C >= 3:
             out_image[..., 0] = out_image[..., 0] + tone_warmth
             out_image[..., 2] = out_image[..., 2] - tone_warmth
 
-        # 2. Spatial Micro-Jitter (sub-pixel grid warping to break VAE lattice signatures)
+        # 5. Spatial Micro-Jitter (sub-pixel grid warping to break VAE lattice signatures)
         if eff_micro_jitter > 0.0:
             tensor_nchw = out_image.permute(0, 3, 1, 2)
             
@@ -190,7 +289,7 @@ class AfterDarkStochasticNoise:
             tensor_nchw = F.grid_sample(tensor_nchw, warped_grid, mode="bilinear", padding_mode="border", align_corners=False)
             out_image = tensor_nchw.permute(0, 2, 3, 1)
 
-        # 3. Subtle Chromatic Aberration (sub-pixel channel offset)
+        # 6. Subtle Chromatic Aberration (sub-pixel channel offset)
         if eff_chromatic_aberration > 0.0 and C >= 3:
             shift_pixels = max(1, int(eff_chromatic_aberration * min(H, W)))
             r_ch = torch.roll(out_image[..., 0], shifts=(shift_pixels, shift_pixels), dims=(1, 2))
@@ -198,7 +297,7 @@ class AfterDarkStochasticNoise:
             out_image[..., 0] = r_ch
             out_image[..., 2] = b_ch
 
-        # 4. Film Grain / Stochastic Noise Generation
+        # 7. Film Grain / Stochastic Noise Generation
         if noise_level > 0.0:
             if eff_grain_size > 1.0:
                 g_h = max(1, int(H / eff_grain_size))
@@ -214,7 +313,6 @@ class AfterDarkStochasticNoise:
             elif noise_type == "multiplicative":
                 raw_noise = torch.randn(noise_shape, dtype=out_image.dtype, device=out_image.device, generator=generator) * noise_level
             elif noise_type == "poisson":
-                # Shot noise / Poisson arrival approximation
                 poisson_scale = 100.0 / max(noise_level, 0.001)
                 scaled_tensor = torch.clamp(out_image[..., :noise_channels] * poisson_scale, min=0.1)
                 if eff_grain_size > 1.0:
@@ -222,7 +320,6 @@ class AfterDarkStochasticNoise:
                 poisson_samples = torch.poisson(scaled_tensor, generator=generator)
                 raw_noise = (poisson_samples - scaled_tensor) / poisson_scale
             elif noise_type == "laplacian":
-                # Heavy-tailed Laplacian distribution (natural film grain spikes)
                 u = torch.rand(noise_shape, dtype=out_image.dtype, device=out_image.device, generator=generator) - 0.5
                 raw_noise = -torch.sign(u) * torch.log(1.0 - 2.0 * torch.abs(u) + 1e-7) * (noise_level * 0.707)
 

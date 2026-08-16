@@ -20,24 +20,27 @@ class TestAfterDarkFilmGrainNode(unittest.TestCase):
             channel_mode="monochromatic",
             micro_jitter=0.0,
             chromatic_aberration=0.0,
+            spatial_resample=0.0,
+            gamma_shift=1.0,
+            edge_softening=0.0,
             luminance_weight=False,
             seed=0
         )
         self.assertTrue(torch.equal(out, self.input_image))
 
-    def test_noise_types(self):
-        noise_types = ["gaussian", "poisson", "multiplicative", "laplacian"]
-        for nt in noise_types:
-            (out,) = self.node.apply_noise(
-                self.input_image,
-                film_preset="None (Manual)",
-                film_format=self.default_format,
-                noise_level=0.03,
-                noise_type=nt,
-                seed=42
-            )
-            self.assertEqual(out.shape, self.input_image.shape)
-            self.assertTrue((out >= 0.0).all() and (out <= 1.0).all())
+    def test_anti_detector_features(self):
+        (out,) = self.node.apply_noise(
+            self.input_image,
+            film_preset="None (Manual)",
+            film_format=self.default_format,
+            noise_level=0.025,
+            spatial_resample=0.015,
+            gamma_shift=0.98,
+            edge_softening=0.10,
+            seed=42
+        )
+        self.assertEqual(out.shape, self.input_image.shape)
+        self.assertTrue((out >= 0.0).all() and (out <= 1.0).all())
 
     def test_film_presets(self):
         for preset_name in FILM_PRESETS.keys():

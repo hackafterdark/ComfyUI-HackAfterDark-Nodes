@@ -97,6 +97,41 @@ If the node fails to load with a `ModuleNotFoundError`, you can fix it by manual
 
 4.  **Restart ComfyUI.**
 
+
+---
+
+# AfterDark Film Grain
+
+A lightweight post-processing node that injects authentic analog film grain, micro-spatial grid jitter, and optical lens aberration into image tensors. Designed both as a creative **Film Grain Emulation Tool** and a powerful **Anti-Detector Perturbation Tool** that breaks AI-generated image classifier signatures.
+
+## Features
+
+- **Film Stock Presets**: 14 built-in emulation profiles modeled after iconic analog film stocks:
+  * **Color Negative**: Kodak Portra 400, Kodak Gold 200, Fuji Pro 400H, Agfa Vista 200
+  * **Color Reversal / Slide**: Kodak Ektachrome 100VS, Fuji Velvia 50, Kodak Kodachrome 64
+  * **Cinema Motion Picture**: CineStill 800T (Tungsten), Kodak Vision3 250D (Daylight)
+  * **B&W Silver Halide**: Kodak Tri-X 400, Kodak T-Max 3200, Ilford HP5 Plus 400, Ilford Delta 100
+  * **Instant Analog**: Polaroid 600 Emulsion
+- **Physical Noise Distributions**: `gaussian` (standard), `poisson` (shot noise), `multiplicative` (dye cloud), and `laplacian` (heavy-tailed halide spikes).
+- **Anti-Detector Protections**: Sub-pixel `micro_jitter`, `spatial_resample`, non-linear `gamma_shift`, and `edge_softening` to disrupt Vision Transformer (ViT) patch token classifiers.
+
+---
+
+# AfterDark Film LUT
+
+A high-performance 3D LUT (Look-Up Table) color grading node. Reads `.cube` LUT files directly from ComfyUI's central `models/luts/` directory.
+
+## Features
+
+- **Central Model Directory Integration**: Loads `.cube` files directly from `ComfyUI/models/luts/` via ComfyUI's standard `folder_paths` manager. Your LUT files are preserved safely across node updates.
+- **Built-In Dropdown Search**: Standard ComfyUI combo dropdown select with built-in search filter support for quickly finding files across nested subdirectories.
+- **GPU Hardware Acceleration**: Uses PyTorch `torch.nn.functional.grid_sample` for 3D trilinear interpolation on GPU, applying complex LUTs in under 2 milliseconds.
+- **Strength / Alpha Blending**: Smooth slider control ($0.0 \to 1.0$) to blend between the original image and the color-graded LUT result.
+- **Tone & Lighting Controls**: Includes `contrast` ($0.5 \to 1.5$) for fine-tuning midtone contrast and `black_lift` ($0.0 \to 0.10$) to simulate authentic physical film shadow density (film toe).
+- **Color Space Transfers**: Supports `"sRGB (Standard)"`, `"Linear -> sRGB"`, and `"sRGB -> Linear"` gamma transfers to accommodate log/linear film print LUTs.
+
+---
+
 ## Credits
 
 - **Author**: HackAfterDark (https://hackafterdark.com)

@@ -1,4 +1,4 @@
-# Copyright 2025 HackAfterDark
+# Copyright 2026 HackAfterDark
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
 from .film_ar_size_selector import NODE_CLASS_MAPPINGS as film_ar_mappings, NODE_DISPLAY_NAME_MAPPINGS as film_ar_display_mappings
 from .gemini_image_prompt_builder import NODE_CLASS_MAPPINGS as gemini_mappings, NODE_DISPLAY_NAME_MAPPINGS as gemini_display_mappings
 from .stochastic_noise import NODE_CLASS_MAPPINGS as noise_mappings, NODE_DISPLAY_NAME_MAPPINGS as noise_display_mappings
+from .film_lut import NODE_CLASS_MAPPINGS as lut_mappings, NODE_DISPLAY_NAME_MAPPINGS as lut_display_mappings
 
-NODE_CLASS_MAPPINGS = {**film_ar_mappings, **gemini_mappings, **noise_mappings}
-NODE_DISPLAY_NAME_MAPPINGS = {**film_ar_display_mappings, **gemini_display_mappings, **noise_display_mappings}
+NODE_CLASS_MAPPINGS = {**film_ar_mappings, **gemini_mappings, **noise_mappings, **lut_mappings}
+NODE_DISPLAY_NAME_MAPPINGS = {**film_ar_display_mappings, **gemini_display_mappings, **noise_display_mappings, **lut_display_mappings}
 
 import os
 import json
@@ -37,6 +38,8 @@ def save_settings(data):
     # Ensure we don't overwrite existing settings if a key is missing
     settings = load_settings()
     settings.update(data)
+    with open(SETTINGS_FILE, 'r') as f:
+        pass
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f, indent=4)
 
