@@ -147,8 +147,9 @@ Simulates physical camera optical lens falloff, film gate framing, and procedura
 ## Features
 - **Procedural Organic Light Leaks**: Generated entirely via PyTorch tensor math—no overlay images required! Features core temperature saturation (`C-41 Fiery Core Flare` transitioning from deep red-orange to white-hot yellow cores), `Tungsten Blue Burn`, `Vintage Magenta Leak`, `Sunburst Golden Flare`, `Rainbow Prism Flare`, `Dual-Tone Cyan & Amber`, and `Random Organic Multi-Layer`.
 - **Realistic Film Burn Patterns**: Modeled directly after authentic analog camera light leaks:
+  * **`Wide Gate Leak (Asymmetric Bar)`**: Asymmetric wide vertical light band with a sharp right edge boundary (metal film gate shadow), soft left gradient, vertical intensity modulation, mid-strip gap breaks, and a secondary sub-strip flare on the opposite edge.
+  * **`Vertical Curtain Gap`**: Vertical light seam running top-to-bottom with soft edge gradients and vertical intensity fluctuations.
   * **`Bottom Frame Burn`**: Fiery upward orange/yellow light flare originating from the bottom edge of the film frame.
-  * **`Vertical Curtain Gap`**: Thin vertical light seam running top-to-bottom caused by degraded camera back door gaskets.
   * **`Dual-Edge Cross Burn`**: Multi-layer opposing leaks (warm bottom flare combined with cool upper corner burn).
   * **`Random / Scattered`**, `Center Specular Flare`, `Diagonal Streak`, `Sprocket Hole Leaks`, corners, and edge strips.
 - **Seed-Driven Spatial & Organic Randomness**: Setting a seed dynamically randomizes center offsets, ellipse scale/aspect ratios, and non-uniform organic burn cloud shapes!

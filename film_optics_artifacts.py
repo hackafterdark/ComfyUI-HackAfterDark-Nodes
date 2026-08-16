@@ -37,8 +37,9 @@ class AfterDarkFilmOpticsArtifacts:
                 "leak_location": (
                     [
                         "Random / Scattered",
-                        "Bottom Frame Burn",
+                        "Wide Gate Leak (Asymmetric Bar)",
                         "Vertical Curtain Gap",
+                        "Bottom Frame Burn",
                         "Dual-Edge Cross Burn",
                         "Top Left Corner",
                         "Top Right Corner",
@@ -156,50 +157,110 @@ class AfterDarkFilmOpticsArtifacts:
             low_noise = torch.rand((1, 1, 8, 8), device=device, dtype=dtype, generator=generator)
             noise_cloud = F.interpolate(low_noise, size=(H, W), mode="bicubic", align_corners=False).squeeze()
 
-            # Primary Leak Distance Geometry Calculation
-            if leak_location == "Bottom Frame Burn":
+            # Primary Leak Distance & Mask Geometry Calculation
+            if leak_location in ("Wide Gate Leak (Asymmetric Bar)", "Vertical Curtain Gap"):
+                # Inspired directly by user reference images (Image 1 & 2):
+                # 1. Asymmetric sharp right gate edge (shadow of metal gate) + soft left bleed
+                # 2. Vertical intensity modulation & gap break in upper-middle
+                # 3. Secondary subtle strip on opposite edge
+                bar_center = 0.60 + jitter_x * 0.4 if leak_location == "Wide Gate Leak (Asymmetric Bar)" else 0.75 + jitter_x * 0.4
+                bar_width = 0.22 * scale_x if leak_location == "Wide Gate Leak (Asymmetric Bar)" else 0.08 * scale_x
+
+                dx = (grid_x - bar_center) / max(bar_width, 0.01)
+                
+                # Asymmetric sharp drop-off on right edge vs smooth bleed on left edge
+                left_edge = torch.clamp((dx + 1.0) * 3.0, 0.0, 1.0)
+                right_edge = torch.clamp(1.0 - (dx - 0.2) * 14.0, 0.0, 1.0)
+                asymmetric_profile = left_edge * right_edge
+
+                # Vertical intensity modulation & gap break (inspired by Image 1 break in upper middle)
+                vert_modulation = 0.55 + 0.45 * torch.sin(grid_y * 3.14159 * 2.5 + jitter_y * 10.0)
+                gap_break = torch.clamp(1.0 - torch.exp(-((grid_y - (0.35 + jitter_y * 0.2))**2) / 0.015) * 0.85, 0.15, 1.0)
+
+                bar_mask = asymmetric_profile * vert_modulation * gap_break
+
+                # Secondary thin strip on opposite side (like Image 1 near bus!)
+                sec_x = 0.15 - jitter_x * 0.3
+                sec_dist = torch.abs(grid_x - sec_x) / 0.06
+                sec_mask = torch.exp(-(sec_dist**2) / 0.35) * 0.35 * vert_modulation
+
+                outer_mask = torch.clamp(bar_mask + sec_mask, 0.0, 1.0) * (0.75 + 0.25 * noise_cloud)
+                core_mask = torch.clamp(bar_mask - 0.35, 0.0, 1.0) * (1.0 - grid_y) * 1.5  # Hot bottom core
+                dist = torch.sqrt(torch.clamp(1.0 - outer_mask, 1e-4, 1.0))
+
+            elif leak_location == "Bottom Frame Burn":
                 # Inspired by Ref Image 1 & 3: Upward fiery flare from bottom edge with uneven height
                 dist_y = torch.clamp(1.0 - grid_y - jitter_y, 0.0, 1.0) / scale_y
                 dist_x = torch.abs(grid_x - (0.4 + jitter_x)) / scale_x
                 dist = torch.sqrt(dist_x**2 + dist_y**2)
-            elif leak_location == "Vertical Curtain Gap":
-                # Inspired by Ref Image 4: Thin vertical light bar along door seal
-                bar_x = 0.20 + jitter_x
-                dist = torch.abs(grid_x - bar_x) / (0.15 * scale_x)
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Dual-Edge Cross Burn":
                 # Inspired by Ref Image 2: Two opposing leaks (bottom flare + top corner leak)
                 dist1 = torch.sqrt(((grid_x - (0.1 + jitter_x)) / scale_x)**2 + ((grid_y - (0.9 + jitter_y)) / scale_y)**2)
                 dist2 = torch.sqrt(((grid_x - (0.9 - jitter_x)) / scale_x)**2 + ((grid_y - (0.1 - jitter_y)) / scale_y)**2)
                 dist = torch.min(dist1, dist2)
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Random / Scattered":
                 cx = 0.5 + jitter_x
                 cy = 0.5 + jitter_y
                 dist = torch.sqrt(((grid_x - cx) / scale_x)**2 + ((grid_y - cy) / scale_y)**2)
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Top Left Corner":
                 dist = torch.sqrt(((grid_x - (0.0 + jitter_x)) / scale_x)**2 + ((grid_y - (0.0 + jitter_y)) / scale_y)**2)
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Top Right Corner":
                 dist = torch.sqrt(((grid_x - (1.0 + jitter_x)) / scale_x)**2 + ((grid_y - (0.0 + jitter_y)) / scale_y)**2)
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Bottom Left Corner":
                 dist = torch.sqrt(((grid_x - (0.0 + jitter_x)) / scale_x)**2 + ((grid_y - (1.0 + jitter_y)) / scale_y)**2)
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Bottom Right Corner":
                 dist = torch.sqrt(((grid_x - (1.0 + jitter_x)) / scale_x)**2 + ((grid_y - (1.0 + jitter_y)) / scale_y)**2)
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Left Edge Strip":
                 dist = torch.abs(grid_x - (0.0 + jitter_x)) / scale_x
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Right Edge Strip":
                 dist = torch.abs(grid_x - (1.0 + jitter_x)) / scale_x
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Center Specular Flare":
                 dist = torch.sqrt(((grid_x - 0.5) / scale_x)**2 + ((grid_y - 0.5) / scale_y)**2)
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Diagonal Streak":
                 dist = torch.abs((grid_x + grid_y) / 1.414 - (0.7 + jitter_x)) / scale_x
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             elif leak_location == "Sprocket Hole Leaks":
                 sprocket_freq = torch.sin(grid_y * 3.14159 * 12.0) ** 4
                 dist = torch.clamp((torch.min(grid_x, 1.0 - grid_x) * 4.0) + (1.0 - sprocket_freq) * 0.5, 0.0, 2.0)
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+
             else:
                 dist = torch.sqrt((1.0 - grid_x)**2 + grid_y**2)
-
-            # C-infinity mathematically smooth Gaussian falloff mask
-            outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
-            core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask  # Hot core saturation
+                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
 
             # Spectral color gradient blending (Outer Fringe -> White Hot Core)
             if light_leak_style == "Rainbow Prism Flare":
