@@ -142,12 +142,16 @@ Without factoring in local pixel luminance, noise applied equally across bright 
 
 # AfterDark Film Optics & Artifacts
 
-Simulates physical camera optical lens falloff, film gate framing, and procedural organic light leaks.
+Simulates physical camera optical lens falloff, film gate framing, and procedural organic light leaks modeled after real analog film reference photos.
 
 ## Features
-- **Procedural Organic Light Leaks**: Generated entirely via PyTorch tensor math—no overlay images required! Supports `C-41 Orange Flare`, `Tungsten Blue Burn`, `Vintage Magenta Leak`, `Sunburst Golden Flare`, `Rainbow Prism Flare`, and `Random Organic Leak`.
-- **Seed-Driven Spatial & Organic Randomness**: Setting a seed dynamically randomizes spatial center offsets, ellipse scale/aspect ratios, and non-uniform organic burn cloud shapes!
-- **Flexible Placement & Patterns**: Position leaks randomly or along specific film frame areas (`Random / Scattered`, `Top Left Corner`, `Top Right Corner`, `Bottom Left Corner`, `Bottom Right Corner`, `Left Edge Strip`, `Right Edge Strip`, `Center Specular Flare`, `Diagonal Streak`, `Sprocket Hole Leaks`).
+- **Procedural Organic Light Leaks**: Generated entirely via PyTorch tensor math—no overlay images required! Features core temperature saturation (`C-41 Fiery Core Flare` transitioning from deep red-orange to white-hot yellow cores), `Tungsten Blue Burn`, `Vintage Magenta Leak`, `Sunburst Golden Flare`, `Rainbow Prism Flare`, `Dual-Tone Cyan & Amber`, and `Random Organic Multi-Layer`.
+- **Realistic Film Burn Patterns**: Modeled directly after authentic analog camera light leaks:
+  * **`Bottom Frame Burn`**: Fiery upward orange/yellow light flare originating from the bottom edge of the film frame.
+  * **`Vertical Curtain Gap`**: Thin vertical light seam running top-to-bottom caused by degraded camera back door gaskets.
+  * **`Dual-Edge Cross Burn`**: Multi-layer opposing leaks (warm bottom flare combined with cool upper corner burn).
+  * **`Random / Scattered`**, `Center Specular Flare`, `Diagonal Streak`, `Sprocket Hole Leaks`, corners, and edge strips.
+- **Seed-Driven Spatial & Organic Randomness**: Setting a seed dynamically randomizes center offsets, ellipse scale/aspect ratios, and non-uniform organic burn cloud shapes!
 - **Physical Lens Vignetting**: Physically accurate radial light falloff ($\cos^4 \theta$ optical law) with adjustable intensity and falloff exponents.
 - **Film Gate Borders**: Soft film frame gate shading.
 
