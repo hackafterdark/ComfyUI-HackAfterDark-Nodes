@@ -37,6 +37,7 @@ class AfterDarkFilmOpticsArtifacts:
                 "leak_location": (
                     [
                         "Random / Scattered",
+                        "Dual-Border Holga Leak",
                         "Wide Gate Leak (Asymmetric Bar)",
                         "Vertical Curtain Gap",
                         "Bottom Frame Burn",
@@ -158,7 +159,24 @@ class AfterDarkFilmOpticsArtifacts:
             noise_cloud = F.interpolate(low_noise, size=(H, W), mode="bicubic", align_corners=False).squeeze()
 
             # Primary Leak Distance & Mask Geometry Calculation
-            if leak_location in ("Wide Gate Leak (Asymmetric Bar)", "Vertical Curtain Gap"):
+            if leak_location == "Dual-Border Holga Leak":
+                # Inspired directly by the Buddha statue reference photo:
+                # 1. Intense bottom-left golden flare blob
+                # 2. Right-side vertical golden light column
+                # 3. Soft top-sky magenta fogging
+                dist_left = torch.sqrt(((grid_x - (0.05 + jitter_x * 0.3)) / (0.25 * scale_x))**2 + ((grid_y - (0.85 + jitter_y * 0.3)) / (0.35 * scale_y))**2)
+                mask_left = torch.exp(-(dist_left**2) / 0.35)
+
+                dist_right = torch.abs(grid_x - (0.90 + jitter_x * 0.2)) / (0.12 * scale_x)
+                mask_right = torch.exp(-(dist_right**2) / 0.35) * (0.6 + 0.4 * torch.sin(grid_y * 3.14159 * 2.0))
+
+                mask_top = torch.clamp((0.25 - grid_y) / 0.25, 0.0, 1.0) * 0.35
+
+                outer_mask = torch.clamp(mask_left + mask_right + mask_top, 0.0, 1.0) * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.clamp(mask_left * 1.5 + mask_right * 0.8 - 0.4, 0.0, 1.0)
+                dist = torch.sqrt(torch.clamp(1.0 - outer_mask, 1e-4, 1.0))
+
+            elif leak_location in ("Wide Gate Leak (Asymmetric Bar)", "Vertical Curtain Gap"):
                 # Inspired directly by user reference images (Image 1 & 2):
                 # 1. Asymmetric sharp right gate edge (shadow of metal gate) + soft left bleed
                 # 2. Vertical intensity modulation & gap break in upper-middle
@@ -205,9 +223,12 @@ class AfterDarkFilmOpticsArtifacts:
                 core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
 
             elif leak_location == "Random / Scattered":
-                cx = 0.5 + jitter_x
-                cy = 0.5 + jitter_y
-                dist = torch.sqrt(((grid_x - cx) / scale_x)**2 + ((grid_y - cy) / scale_y)**2)
+                # Multi-pocket random scatter: Generates 1 to 2 organic flare pockets
+                cx1, cy1 = 0.5 + jitter_x, 0.5 + jitter_y
+                cx2, cy2 = 0.1 + jitter_y, 0.85 - jitter_x
+                dist1 = torch.sqrt(((grid_x - cx1) / scale_x)**2 + ((grid_y - cy1) / scale_y)**2)
+                dist2 = torch.sqrt(((grid_x - cx2) / scale_y)**2 + ((grid_y - cy2) / scale_x)**2)
+                dist = torch.min(dist1, dist2)
                 outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
                 core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
 
