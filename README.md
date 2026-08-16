@@ -142,11 +142,12 @@ Without factoring in local pixel luminance, noise applied equally across bright 
 
 # AfterDark Film Optics & Artifacts
 
-Simulates physical camera optical lens falloff, film gate framing, and procedural light leaks.
+Simulates physical camera optical lens falloff, film gate framing, and procedural organic light leaks.
 
 ## Features
-- **Procedural Light Leaks**: Generated entirely via PyTorch tensor math—no overlay images required! Supports `C-41 Orange Flare`, `Tungsten Blue Burn`, `Vintage Magenta Leak`, and `Random Light Leak`.
-- **Flexible Leak Placement**: Position leaks along corners or edge strips (`Top Left Corner`, `Top Right Corner`, `Bottom Left Corner`, `Bottom Right Corner`, `Left Edge Strip`, `Right Edge Strip`).
+- **Procedural Organic Light Leaks**: Generated entirely via PyTorch tensor math—no overlay images required! Supports `C-41 Orange Flare`, `Tungsten Blue Burn`, `Vintage Magenta Leak`, `Sunburst Golden Flare`, `Rainbow Prism Flare`, and `Random Organic Leak`.
+- **Seed-Driven Spatial & Organic Randomness**: Setting a seed dynamically randomizes spatial center offsets, ellipse scale/aspect ratios, and non-uniform organic burn cloud shapes!
+- **Flexible Placement & Patterns**: Position leaks randomly or along specific film frame areas (`Random / Scattered`, `Top Left Corner`, `Top Right Corner`, `Bottom Left Corner`, `Bottom Right Corner`, `Left Edge Strip`, `Right Edge Strip`, `Center Specular Flare`, `Diagonal Streak`, `Sprocket Hole Leaks`).
 - **Physical Lens Vignetting**: Physically accurate radial light falloff ($\cos^4 \theta$ optical law) with adjustable intensity and falloff exponents.
 - **Film Gate Borders**: Soft film frame gate shading.
 
