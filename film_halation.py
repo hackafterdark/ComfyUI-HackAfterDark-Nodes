@@ -28,13 +28,13 @@ class AfterDarkFilmHalation:
                     "step": 0.05,
                 }),
                 "threshold": ("FLOAT", {
-                    "default": 0.85,
+                    "default": 0.75,
                     "min": 0.50,
                     "max": 0.99,
                     "step": 0.01,
                 }),
                 "bloom_radius": ("FLOAT", {
-                    "default": 8.0,
+                    "default": 12.0,
                     "min": 1.0,
                     "max": 30.0,
                     "step": 0.5,
@@ -55,8 +55,8 @@ class AfterDarkFilmHalation:
         self,
         image,
         halation_intensity=0.35,
-        threshold=0.85,
-        bloom_radius=8.0,
+        threshold=0.75,
+        bloom_radius=12.0,
         halation_tint="Red / Orange (CineStill 800T)"
     ):
         if halation_intensity <= 0.0:
@@ -70,15 +70,19 @@ class AfterDarkFilmHalation:
         if C < 3:
             return (image,)
 
-        # 1. Calculate luminance map
+        # 1. Calculate Max Channel Intensity & Luminance Map
+        max_channel = torch.max(out_image[..., :3], dim=-1)[0]  # [B, H, W]
         luminance = (
             0.2126 * out_image[..., 0] +
             0.7152 * out_image[..., 1] +
             0.0722 * out_image[..., 2]
         )  # [B, H, W]
 
+        # Max channel isolation so vibrant Red/Blue neon lights trigger halation!
+        effective_highlight = 0.70 * max_channel + 0.30 * luminance
+
         # 2. Extract specular highlights above threshold
-        specular = torch.clamp((luminance - threshold) / (1.0 - threshold + 1e-6), 0.0, 1.0)
+        specular = torch.clamp((effective_highlight - threshold) / (1.0 - threshold + 1e-6), 0.0, 1.0)
         specular = specular.unsqueeze(1)  # [B, 1, H, W]
 
         # 3. Determine Halation Tint Color
@@ -93,14 +97,17 @@ class AfterDarkFilmHalation:
         else:
             tint = torch.tensor([1.0, 0.20, 0.04], device=device, dtype=dtype)
 
-        # 4. Multi-scale Gaussian Bloom Blur via PyTorch downsampling pyramid
-        scale = max(1.0, bloom_radius / 4.0)
-        low_h = max(4, int(H / scale))
-        low_w = max(4, int(W / scale))
+        # 4. Multi-Scale Gaussian Bloom Pyramid (Dual-radius blur for rich atmospheric halo)
+        s1 = max(1.0, bloom_radius / 2.0)
+        s2 = max(1.0, bloom_radius)
 
-        down = F.interpolate(specular, size=(low_h, low_w), mode="bilinear", align_corners=False)
-        blur = F.interpolate(down, size=(H, W), mode="bilinear", align_corners=False)
-        blur = blur.squeeze(1).unsqueeze(-1)  # [B, H, W, 1]
+        down1 = F.interpolate(specular, size=(max(4, int(H / s1)), max(4, int(W / s1))), mode="bilinear", align_corners=False)
+        blur1 = F.interpolate(down1, size=(H, W), mode="bilinear", align_corners=False)
+
+        down2 = F.interpolate(specular, size=(max(4, int(H / s2)), max(4, int(W / s2))), mode="bilinear", align_corners=False)
+        blur2 = F.interpolate(down2, size=(H, W), mode="bilinear", align_corners=False)
+
+        blur = (blur1 * 0.6 + blur2 * 0.4).squeeze(1).unsqueeze(-1)  # [B, H, W, 1]
 
         # 5. Apply tinted bloom with soft additive blending
         bloom_effect = blur * tint.view(1, 1, 1, 3) * halation_intensity
