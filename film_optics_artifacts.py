@@ -56,7 +56,7 @@ class AfterDarkFilmOpticsArtifacts:
                         "Right Edge Strip",
                         "Center Specular Flare",
                         "Diagonal Streak",
-                        "Sprocket Hole Leaks"
+                        "35mm Sprocket Hole Flares"
                     ],
                     {"default": "Random / Scattered"}
                 ),
@@ -157,7 +157,7 @@ class AfterDarkFilmOpticsArtifacts:
                     "Right Edge Strip",
                     "Center Specular Flare",
                     "Diagonal Streak",
-                    "Sprocket Hole Leaks"
+                    "35mm Sprocket Hole Flares"
                 ]
                 if generator is not None:
                     idx = int(torch.randint(0, len(all_locs), (1,), generator=generator).item())
@@ -229,7 +229,6 @@ class AfterDarkFilmOpticsArtifacts:
                 dist = torch.sqrt(torch.clamp(1.0 - outer_mask, 1e-4, 1.0))
 
             elif chosen_location == "First Frame Load Leak (Full Wash)":
-                # Heavy upper & side fogging from loading film into camera
                 wash_top = torch.clamp((0.65 - grid_y) / 0.65, 0.0, 1.0)
                 wash_side = torch.clamp((0.50 - grid_x) / 0.50, 0.0, 1.0)
                 outer_mask = torch.clamp(wash_top * 0.8 + wash_side * 0.5, 0.0, 1.0) * (0.80 + 0.20 * noise_cloud)
@@ -237,7 +236,6 @@ class AfterDarkFilmOpticsArtifacts:
                 dist = torch.sqrt(torch.clamp(1.0 - outer_mask, 1e-4, 1.0))
 
             elif chosen_location == "Anamorphic Lens Flare Streak":
-                # Horizontal optical streak across frame center
                 dy = torch.abs(grid_y - (0.50 + jitter_y * 0.4)) / (0.04 * scale_y)
                 streak_mask = torch.exp(-(dy**2) / 0.35)
                 outer_mask = streak_mask * (0.85 + 0.15 * noise_cloud)
@@ -324,11 +322,20 @@ class AfterDarkFilmOpticsArtifacts:
                 outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
                 core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
 
-            elif chosen_location == "Sprocket Hole Leaks":
-                sprocket_freq = torch.sin(grid_y * 3.14159 * 12.0) ** 4
-                dist = torch.clamp((torch.min(grid_x, 1.0 - grid_x) * 4.0) + (1.0 - sprocket_freq) * 0.5, 0.0, 2.0)
-                outer_mask = torch.exp(-(dist ** 2) / 0.35) * (0.80 + 0.20 * noise_cloud)
-                core_mask = torch.exp(-(dist ** 2) / 0.06) * outer_mask
+            elif chosen_location == "35mm Sprocket Hole Flares":
+                # Real 35mm Sprocket Hole Perforation Flares:
+                # 35mm film has 8 sprocket perforations per standard frame height.
+                # Light leaking through perforations creates soft rectangular glowing tabs.
+                sprocket_y = torch.abs(torch.remainder(grid_y * 8.0, 1.0) - 0.5)
+                rect_tab = torch.clamp((0.22 - sprocket_y) / 0.22, 0.0, 1.0)
+                
+                edge_left = torch.clamp((0.08 - grid_x) / 0.08, 0.0, 1.0)
+                edge_right = torch.clamp((grid_x - 0.92) / 0.08, 0.0, 1.0)
+                
+                sprocket_mask = rect_tab * (edge_left + edge_right)
+                outer_mask = sprocket_mask * (0.80 + 0.20 * noise_cloud)
+                core_mask = torch.exp(-((grid_x - 0.02)**2)/0.001) * rect_tab + torch.exp(-((grid_x - 0.98)**2)/0.001) * rect_tab
+                dist = torch.sqrt(torch.clamp(1.0 - outer_mask, 1e-4, 1.0))
 
             else:
                 dist = torch.sqrt((1.0 - grid_x)**2 + grid_y**2)

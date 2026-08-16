@@ -152,7 +152,8 @@ Simulates physical camera optical lens falloff, film gate framing, and procedura
   * **`Wide Gate Leak (Asymmetric Bar)`**: Asymmetric wide vertical light band with sharp metal film gate shadow boundary and mid-strip gap breaks.
   * **`First Frame Load Leak (Full Wash)`**: Heavy upper and side fogging caused by exposing the film leader while loading into the camera.
   * **`Anamorphic Lens Flare Streak`**: Horizontal optical streak flare across the frame center.
-  * **`Vertical Curtain Gap`**, **`Bottom Frame Burn`**, **`Dual-Edge Cross Burn`**, corners, edge strips, and sprocket hole leaks.
+  * **`35mm Sprocket Hole Flares`**: Modeled after shooting 35mm film in unmasked medium-format cameras, featuring 8 discrete rectangular perforation tab flares confined strictly to the outer 8% edge margins.
+  * **`Vertical Curtain Gap`**, **`Bottom Frame Burn`**, **`Dual-Edge Cross Burn`**, corners, and edge strips.
 - **Dynamic `Random / Scattered` Mode**: Selecting `Random / Scattered` with a seed dynamically samples across **ALL 17 location templates** with unique spatial jitter, scaling, and bicubic organic noise cloud shapes on every single run!
 - **Physical Lens Vignetting**: Physically accurate radial light falloff ($\cos^4 \theta$ optical law) with adjustable intensity and falloff exponents.
 - **Film Gate Borders**: Soft film frame gate shading.
