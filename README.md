@@ -106,11 +106,11 @@ A lightweight post-processing node that injects authentic analog film grain, mic
 
 ## Features
 
-- **Film Stock Presets**: 16 built-in emulation profiles modeled after iconic analog film stocks:
-  * **Color Negative**: Kodak Portra 400, Kodak Gold 200, Fuji Pro 400H, Agfa Vista 200, Harman Phoenix 200 (Experimental)
-  * **Color Reversal / Slide**: Kodak Ektachrome 100VS, Fuji Velvia 50, Kodak Kodachrome 64
+- **Film Stock Presets**: 24 built-in emulation profiles modeled after iconic DxO FilmPack and classic analog film stocks:
+  * **Color Negative**: Kodak Portra 400, Kodak Gold 200, Kodak Ektar 100, Kodak ColorPlus 200, Fuji Pro 400H, Agfa Vista 200, Harman Phoenix 200 (Experimental), LomoChrome Metropolis
+  * **Color Reversal / Slide**: Kodak Ektachrome 100VS, Fuji Velvia 50, Kodak Kodachrome 64, Agfa Scala 200x (B&W Reversal)
   * **Cinema Motion Picture**: CineStill 800T (Tungsten), Kodak Vision3 250D (Daylight)
-  * **B&W Silver Halide**: Kodak Tri-X 400, Kodak T-Max 3200, Ilford HP5 Plus 400, Ilford Delta 100, Lomography Lady Grey 400 (120 Medium Format)
+  * **B&W Silver Halide**: Kodak Tri-X 400, Kodak T-Max 3200, Fuji Neopan Acros 100 II, Ilford HP5 Plus 400, Ilford Delta 100, Ilford Delta 3200, Ilford Pan F Plus 50, Lomography Lady Grey 400 (120 Medium Format), Lomography Earl Grey 100
   * **Instant Analog**: Polaroid 600 Emulsion
 - **Physical Noise Distributions**: `gaussian` (standard), `poisson` (shot noise), `multiplicative` (dye cloud), and `laplacian` (heavy-tailed halide spikes).
 - **Luminance Exposure Response**: Choice of exposure modulation profiles:
