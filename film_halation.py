@@ -28,15 +28,15 @@ class AfterDarkFilmHalation:
                     "step": 0.05,
                 }),
                 "threshold": ("FLOAT", {
-                    "default": 0.75,
-                    "min": 0.50,
+                    "default": 0.70,
+                    "min": 0.30,
                     "max": 0.99,
                     "step": 0.01,
                 }),
                 "bloom_radius": ("FLOAT", {
                     "default": 12.0,
                     "min": 1.0,
-                    "max": 30.0,
+                    "max": 40.0,
                     "step": 0.5,
                 }),
                 "halation_tint": (
@@ -55,7 +55,7 @@ class AfterDarkFilmHalation:
         self,
         image,
         halation_intensity=0.35,
-        threshold=0.75,
+        threshold=0.70,
         bloom_radius=12.0,
         halation_tint="Red / Orange (CineStill 800T)"
     ):
@@ -79,15 +79,17 @@ class AfterDarkFilmHalation:
         )  # [B, H, W]
 
         # Max channel isolation so vibrant Red/Blue neon lights trigger halation!
-        effective_highlight = 0.70 * max_channel + 0.30 * luminance
+        effective_highlight = 0.75 * max_channel + 0.25 * luminance
 
-        # 2. Extract specular highlights above threshold
-        specular = torch.clamp((effective_highlight - threshold) / (1.0 - threshold + 1e-6), 0.0, 1.0)
+        # 2. Extract specular highlights above threshold with smooth soft knee
+        knee = 0.12
+        specular = torch.clamp((effective_highlight - (threshold - knee)) / (1.0 - (threshold - knee) + 1e-6), 0.0, 1.0)
+        specular = torch.pow(specular, 1.5)  # Smooth organic falloff
         specular = specular.unsqueeze(1)  # [B, 1, H, W]
 
         # 3. Determine Halation Tint Color
         if halation_tint == "Red / Orange (CineStill 800T)":
-            tint = torch.tensor([1.0, 0.20, 0.04], device=device, dtype=dtype)
+            tint = torch.tensor([1.0, 0.22, 0.04], device=device, dtype=dtype)
         elif halation_tint == "Golden Amber":
             tint = torch.tensor([1.0, 0.55, 0.10], device=device, dtype=dtype)
         elif halation_tint == "Warm Yellow":
@@ -95,7 +97,7 @@ class AfterDarkFilmHalation:
         elif halation_tint == "Soft White":
             tint = torch.tensor([1.0, 1.0, 1.0], device=device, dtype=dtype)
         else:
-            tint = torch.tensor([1.0, 0.20, 0.04], device=device, dtype=dtype)
+            tint = torch.tensor([1.0, 0.22, 0.04], device=device, dtype=dtype)
 
         # 4. Multi-Scale Gaussian Bloom Pyramid (Dual-radius blur for rich atmospheric halo)
         s1 = max(1.0, bloom_radius / 2.0)
@@ -107,10 +109,10 @@ class AfterDarkFilmHalation:
         down2 = F.interpolate(specular, size=(max(4, int(H / s2)), max(4, int(W / s2))), mode="bilinear", align_corners=False)
         blur2 = F.interpolate(down2, size=(H, W), mode="bilinear", align_corners=False)
 
-        blur = (blur1 * 0.6 + blur2 * 0.4).squeeze(1).unsqueeze(-1)  # [B, H, W, 1]
+        blur = (blur1 * 0.65 + blur2 * 0.35).squeeze(1).unsqueeze(-1)  # [B, H, W, 1]
 
         # 5. Apply tinted bloom with soft additive blending
-        bloom_effect = blur * tint.view(1, 1, 1, 3) * halation_intensity
+        bloom_effect = blur * tint.view(1, 1, 1, 3) * (halation_intensity * 1.4)
         out_image[..., :3] = torch.clamp(out_image[..., :3] + bloom_effect, 0.0, 1.0)
 
         return (out_image,)
