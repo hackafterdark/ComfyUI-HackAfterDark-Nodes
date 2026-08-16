@@ -115,6 +115,76 @@ FILM_PRESETS = {
         "base_aberration": 0.0022,
         "tone_warmth": 0.008,
     },
+    "Harman Phoenix 200 (Experimental Color)": {
+        "noise_type": "gaussian",
+        "base_grain_size": 1.70,
+        "base_jitter": 0.0022,
+        "base_aberration": 0.0020,
+        "tone_warmth": 0.028,
+    },
+    "Lomography Lady Grey 400 (B&W 120 Medium Format)": {
+        "noise_type": "laplacian",
+        "base_grain_size": 1.30,
+        "base_jitter": 0.0018,
+        "base_aberration": 0.0,
+        "tone_warmth": 0.0,
+    },
+    "Fuji Neopan Acros 100 II (Ultra-Fine B&W)": {
+        "noise_type": "laplacian",
+        "base_grain_size": 0.90,
+        "base_jitter": 0.0010,
+        "base_aberration": 0.0,
+        "tone_warmth": 0.0,
+    },
+    "Ilford Delta 3200 (High-Speed Gritty B&W)": {
+        "noise_type": "laplacian",
+        "base_grain_size": 2.40,
+        "base_jitter": 0.0035,
+        "base_aberration": 0.0,
+        "tone_warmth": 0.0,
+    },
+    "Kodak Ektar 100 (Ultra-Vivid Fine Color)": {
+        "noise_type": "gaussian",
+        "base_grain_size": 0.95,
+        "base_jitter": 0.0010,
+        "base_aberration": 0.0006,
+        "tone_warmth": 0.005,
+    },
+    "Kodak ColorPlus 200 (Vintage Consumer Warmth)": {
+        "noise_type": "gaussian",
+        "base_grain_size": 1.40,
+        "base_jitter": 0.0016,
+        "base_aberration": 0.0012,
+        "tone_warmth": 0.022,
+    },
+    "LomoChrome Metropolis (Desaturated Experimental)": {
+        "noise_type": "multiplicative",
+        "base_grain_size": 1.65,
+        "base_jitter": 0.0020,
+        "base_aberration": 0.0015,
+        "tone_warmth": -0.012,
+    },
+    "Ilford Pan F Plus 50 (Ultra-Fine Low-ISO B&W)": {
+        "noise_type": "multiplicative",
+        "base_grain_size": 0.85,
+        "base_jitter": 0.0008,
+        "base_aberration": 0.0,
+        "tone_warmth": 0.0,
+    },
+    "Lomography Earl Grey 100 (Fine B&W)": {
+        "noise_type": "laplacian",
+        "base_grain_size": 1.05,
+        "base_jitter": 0.0012,
+        "base_aberration": 0.0,
+        "tone_warmth": 0.0,
+    },
+    "Agfa Scala 200x (B&W Reversal Slide)": {
+        "noise_type": "poisson",
+        "base_grain_size": 1.20,
+        "base_jitter": 0.0015,
+        "base_aberration": 0.0,
+        "tone_warmth": 0.0,
+    },
 }
 
 FORMAT_SCALERS = {
@@ -175,7 +245,7 @@ class AfterDarkStochasticNoise:
                     "max": 1.0,
                     "step": 0.05,
                 }),
-                "luminance_weight": ("BOOLEAN", {"default": True}),
+                "luminance_response": (["Film (Midtone & Shadow)", "Digital (Shadow Heavy)", "Uniform (Flat)"], {"default": "Film (Midtone & Shadow)"}),
             },
             "optional": {
                 "seed": ("INT", {
@@ -205,9 +275,16 @@ class AfterDarkStochasticNoise:
         spatial_resample=0.015,
         gamma_shift=0.98,
         edge_softening=0.10,
-        luminance_weight=True,
-        seed=0
+        luminance_response="Film (Midtone & Shadow)",
+        seed=0,
+        luminance_weight=None
     ):
+        # Backward compatibility if luminance_weight boolean parameter is provided
+        if luminance_weight is not None:
+            if isinstance(luminance_weight, bool):
+                luminance_response = "Film (Midtone & Shadow)" if luminance_weight else "Uniform (Flat)"
+            elif isinstance(luminance_weight, str):
+                luminance_response = luminance_weight
         out_image = image.clone()
         B, H, W, C = out_image.shape
 
@@ -333,12 +410,19 @@ class AfterDarkStochasticNoise:
             if channel_mode == "monochromatic" and noise.shape[-1] == 1:
                 noise = noise.expand(-1, -1, -1, C)
 
-            if luminance_weight:
+            if luminance_response != "Uniform (Flat)":
                 if C >= 3:
                     lum = 0.299 * out_image[..., 0:1] + 0.587 * out_image[..., 1:2] + 0.114 * out_image[..., 2:3]
                 else:
                     lum = out_image[..., 0:1]
-                weight = 1.0 - torch.square(2.0 * (lum - 0.5))
+
+                if luminance_response == "Digital (Shadow Heavy)":
+                    # Digital Sensor low-SNR noise (heaviest in deep darks, rolls off linearly)
+                    weight = torch.clamp(1.0 - 0.75 * lum, min=0.10, max=1.0)
+                else:
+                    # Film (Midtone & Shadow): Peak density in shadows/midtones, soft roll-off in highlights
+                    weight = torch.clamp(1.0 - torch.pow(torch.clamp(lum - 0.2, min=0.0), 1.5) * 1.5, min=0.15, max=1.0)
+
                 noise = noise * weight
 
             if noise_type == "multiplicative":

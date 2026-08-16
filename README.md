@@ -106,14 +106,37 @@ A lightweight post-processing node that injects authentic analog film grain, mic
 
 ## Features
 
-- **Film Stock Presets**: 14 built-in emulation profiles modeled after iconic analog film stocks:
-  * **Color Negative**: Kodak Portra 400, Kodak Gold 200, Fuji Pro 400H, Agfa Vista 200
+- **Film Stock Presets**: 16 built-in emulation profiles modeled after iconic analog film stocks:
+  * **Color Negative**: Kodak Portra 400, Kodak Gold 200, Fuji Pro 400H, Agfa Vista 200, Harman Phoenix 200 (Experimental)
   * **Color Reversal / Slide**: Kodak Ektachrome 100VS, Fuji Velvia 50, Kodak Kodachrome 64
   * **Cinema Motion Picture**: CineStill 800T (Tungsten), Kodak Vision3 250D (Daylight)
-  * **B&W Silver Halide**: Kodak Tri-X 400, Kodak T-Max 3200, Ilford HP5 Plus 400, Ilford Delta 100
+  * **B&W Silver Halide**: Kodak Tri-X 400, Kodak T-Max 3200, Ilford HP5 Plus 400, Ilford Delta 100, Lomography Lady Grey 400 (120 Medium Format)
   * **Instant Analog**: Polaroid 600 Emulsion
 - **Physical Noise Distributions**: `gaussian` (standard), `poisson` (shot noise), `multiplicative` (dye cloud), and `laplacian` (heavy-tailed halide spikes).
+- **Luminance Exposure Response**: Choice of exposure modulation profiles:
+  * `Film (Midtone & Shadow)`: Silver halide density curve with heavy grain in shadows/midtones and soft highlight roll-off.
+  * `Digital (Shadow Heavy)`: Low Signal-to-Noise Ratio (SNR) digital thermal dark current noise.
+  * `Uniform (Flat)`: Equal noise distribution across all brightness levels.
 - **Anti-Detector Protections**: Sub-pixel `micro_jitter`, `spatial_resample`, non-linear `gamma_shift`, and `edge_softening` to disrupt Vision Transformer (ViT) patch token classifiers.
+
+## Exposure Response & Luminance Physics
+
+In real physical photography, **film grain is never a uniform noise layer** pasted evenly across an image. 
+
+In physical film stock, grain is the visual result of metallic silver halide crystal clumping and organic C-41 dye cloud formation. Because chemical development reacts differently depending on light exposure, **film grain looks completely different depending on the brightness or darkness of the scene**:
+
+- **Specular Highlights**: Bright highlights saturate into dense metallic silver on negative film, dampening grain variance.
+- **Midtones & Shadows**: Midtones and dark shadows exhibit the highest grain density and visual structure.
+
+Without factoring in local pixel luminance, noise applied equally across bright skies, skin tones, and deep shadows immediately looks artificial—like a flat digital overlay rather than authentic analog film emulsion.
+
+### Choosing the Right Exposure Response Mode
+
+| Mode | Real-World Physics | When to Use |
+| :--- | :--- | :--- |
+| **`Film (Midtone & Shadow)`** *(Default)* | **Analog Silver Halide Emulsion**: Grain density peaks in dark shadows and midtones ($L = 0.1 \to 0.6$) and rolls off smoothly in bright highlights ($L > 0.85$). | **Best for Authentic Film Look**: Use this for film stock emulations (Portra, Ektachrome, Tri-X). Keeps bright skies and specular highlights clean while giving shadows and skin midtones rich, organic film texture. |
+| **`Digital (Shadow Heavy)`** | **Digital Sensor Thermal Noise**: Low Signal-to-Noise Ratio (SNR) in dark current causes sensor read noise to dominate dark shadow regions. | **Best for Digital High-ISO Look**: Use when emulating low-light photography shot on digital camera sensors (e.g. DSLR/mirrorless at ISO 6400). Concentrates noise in deep darks ($L < 0.30$). |
+| **`Uniform (Flat)`** | **Mathematical Uniform Overlay**: Noise is applied with equal intensity across all pixels, regardless of brightness. | **Best for Anti-Detector Perturbations**: Use when your primary goal is disrupting Vision Transformer (ViT) patch classifiers across every spatial token, or for creative graphic texturing. |
 
 ---
 
