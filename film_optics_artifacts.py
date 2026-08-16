@@ -61,7 +61,7 @@ class AfterDarkFilmOpticsArtifacts:
                     "step": 0.05,
                 }),
                 "vignette_amount": ("FLOAT", {
-                    "default": 0.25,
+                    "default": 0.0,
                     "min": 0.0,
                     "max": 1.0,
                     "step": 0.05,
@@ -99,7 +99,7 @@ class AfterDarkFilmOpticsArtifacts:
         light_leak_style="C-41 Fiery Core Flare",
         leak_location="Random / Scattered",
         leak_intensity=0.35,
-        vignette_amount=0.25,
+        vignette_amount=0.0,
         vignette_falloff=1.5,
         gate_border=0.0,
         seed=0,
