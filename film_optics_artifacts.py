@@ -25,9 +25,12 @@ class AfterDarkFilmOpticsArtifacts:
                     [
                         "None",
                         "C-41 Fiery Core Flare",
+                        "Crimson Red Base Burn",
                         "Tungsten Blue Burn",
                         "Vintage Magenta Leak",
                         "Sunburst Golden Flare",
+                        "E-6 Slide Solarized Yellow",
+                        "Overexposed White-Hot Flare",
                         "Anamorphic Prism Diffraction",
                         "Dual-Tone Cyan & Amber",
                         "Random Organic Multi-Layer"
@@ -137,12 +140,19 @@ class AfterDarkFilmOpticsArtifacts:
 
             if light_leak_style in ("C-41 Fiery Core Flare", "None"):
                 outer_tint = torch.tensor([1.0, 0.25, 0.05], device=device, dtype=dtype)  # Deep C-41 Red-Orange
+            elif light_leak_style == "Crimson Red Base Burn":
+                outer_tint = torch.tensor([0.90, 0.05, 0.10], device=device, dtype=dtype)  # Deep blood-red acetate backing burn
             elif light_leak_style == "Tungsten Blue Burn":
                 outer_tint = torch.tensor([0.15, 0.50, 1.0], device=device, dtype=dtype)
             elif light_leak_style == "Vintage Magenta Leak":
                 outer_tint = torch.tensor([0.95, 0.15, 0.60], device=device, dtype=dtype)
             elif light_leak_style == "Sunburst Golden Flare":
                 outer_tint = torch.tensor([1.0, 0.70, 0.15], device=device, dtype=dtype)
+            elif light_leak_style == "E-6 Slide Solarized Yellow":
+                outer_tint = torch.tensor([0.85, 0.95, 0.10], device=device, dtype=dtype)  # Slide film solarized yellow-green
+            elif light_leak_style == "Overexposed White-Hot Flare":
+                outer_tint = torch.tensor([1.0, 0.98, 0.85], device=device, dtype=dtype)  # Blown out white-gold overexposure
+                hot_core_tint = torch.tensor([1.0, 1.0, 1.0], device=device, dtype=dtype)
             elif light_leak_style == "Dual-Tone Cyan & Amber":
                 outer_tint = torch.tensor([0.10, 0.85, 0.95], device=device, dtype=dtype)
             elif light_leak_style in ("Random Organic Multi-Layer", "Anamorphic Prism Diffraction"):
