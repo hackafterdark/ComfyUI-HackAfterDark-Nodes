@@ -325,16 +325,21 @@ class AfterDarkFilmOpticsArtifacts:
             elif chosen_location == "35mm Sprocket Hole Flares":
                 # Real 35mm Sprocket Hole Perforation Flares:
                 # 35mm film has 8 sprocket perforations per standard frame height.
-                # Light leaking through perforations creates soft rectangular glowing tabs.
+                # Adding seed-based organic depth variation to individual sprocket tabs!
+                sprocket_idx = torch.floor(grid_y * 8.0)
                 sprocket_y = torch.abs(torch.remainder(grid_y * 8.0, 1.0) - 0.5)
-                rect_tab = torch.clamp((0.22 - sprocket_y) / 0.22, 0.0, 1.0)
+                rect_tab = torch.clamp((0.24 - sprocket_y) / 0.24, 0.0, 1.0)
                 
-                edge_left = torch.clamp((0.08 - grid_x) / 0.08, 0.0, 1.0)
-                edge_right = torch.clamp((grid_x - 0.92) / 0.08, 0.0, 1.0)
+                # Organic depth modulation per sprocket hole
+                sprocket_var = 0.5 + 0.5 * torch.sin(sprocket_idx * 2.4 + jitter_y * 10.0)
+                
+                # Asymmetric primary leak side vs subtle secondary side
+                edge_left = torch.clamp((0.14 * scale_x * sprocket_var - grid_x) / (0.14 * scale_x * sprocket_var + 1e-4), 0.0, 1.0)
+                edge_right = torch.clamp((grid_x - (1.0 - 0.06 * scale_x)) / (0.06 * scale_x), 0.0, 1.0) * 0.4
                 
                 sprocket_mask = rect_tab * (edge_left + edge_right)
-                outer_mask = sprocket_mask * (0.80 + 0.20 * noise_cloud)
-                core_mask = torch.exp(-((grid_x - 0.02)**2)/0.001) * rect_tab + torch.exp(-((grid_x - 0.98)**2)/0.001) * rect_tab
+                outer_mask = sprocket_mask * (0.75 + 0.25 * noise_cloud)
+                core_mask = torch.exp(-((grid_x - 0.02)**2)/0.001) * rect_tab * edge_left
                 dist = torch.sqrt(torch.clamp(1.0 - outer_mask, 1e-4, 1.0))
 
             else:
