@@ -196,6 +196,24 @@ A high-performance 3D LUT (Look-Up Table) color grading node. Reads `.cube` LUT 
 
 ---
 
+# HackAfterDark Live Grade
+
+An interactive live color grading node with real-time parameter reactivity and dual thumbnail preview.
+
+## Features
+
+- **Live Interactive Grading**: Tunable parameters trigger instant background queue refreshes for a seamless live color-grading loop directly on the ComfyUI canvas.
+- **Dynamic LUT Directory Scanning**: Automatically populates `.cube` LUT files from `F:/ComfyUI/models/luts/`, `ComfyUI/models/luts/`, and local directories.
+- **Sequential PyTorch Tensor Pipeline**:
+  1. **3D LUT Application**: Trilinear GPU interpolation with blend `strength` slider.
+  2. **Tonality Adjustments**: Exposure EV stops, midtone `contrast`, and film toe `black_lift`.
+  3. **HSV Color Transformations**: Vectorized `hue` shift (-180° to +180°) and `saturation` scaling.
+  4. **Tint Offset Matrix**: Dual-axis tint correction for Green/Magenta and Amber/Blue casts.
+- **Dual Thumbnail Preview Panel**: Canvas preview rendering comparing **ORIGINAL** vs. **LIVE GRADED** output directly on the node face.
+- **Standalone Safety**: Fully independent from `AfterDark Film LUT` so legacy project workflows remain untouched.
+
+---
+
 ## Credits
 
 - **Author**: HackAfterDark (https://hackafterdark.com)
