@@ -170,33 +170,29 @@ class HackAfterDarkLiveGrade:
             "required": {
                 "image": ("IMAGE",),
                 "lut_file": (cls.get_lut_files(),),
-                "strength": ("FLOAT", {
+                "lut_strength": ("FLOAT", {
                     "default": 1.0,
                     "min": 0.0,
                     "max": 1.0,
                     "step": 0.01,
-                    "display": "slider",
                 }),
                 "exposure": ("FLOAT", {
                     "default": 0.0,
                     "min": -3.0,
                     "max": 3.0,
                     "step": 0.05,
-                    "display": "slider",
                 }),
                 "contrast": ("FLOAT", {
                     "default": 1.0,
                     "min": 0.5,
                     "max": 1.5,
                     "step": 0.01,
-                    "display": "slider",
                 }),
                 "black_lift": ("FLOAT", {
                     "default": 0.0,
                     "min": -0.5,
                     "max": 0.5,
                     "step": 0.005,
-                    "display": "slider",
                 }),
                 "hue": ("FLOAT", {
                     "default": 0.0,
@@ -210,7 +206,6 @@ class HackAfterDarkLiveGrade:
                     "min": 0.0,
                     "max": 2.0,
                     "step": 0.01,
-                    "display": "slider",
                 }),
                 "tint_green_magenta": ("FLOAT", {
                     "default": 0.0,
@@ -225,6 +220,44 @@ class HackAfterDarkLiveGrade:
                     "max": 1.0,
                     "step": 0.01,
                     "display": "slider",
+                }),
+                "shadow_tint": (
+                    ["Neutral", "Teal / Cyan", "Deep Blue", "Emerald Green", "Warm Sepia"],
+                    {"default": "Neutral"}
+                ),
+                "shadow_intensity": ("FLOAT", {
+                    "default": 0.0,
+                    "min": 0.0,
+                    "max": 1.0,
+                    "step": 0.05,
+                }),
+                "highlight_tint": (
+                    ["Neutral", "Golden Amber", "Warm Yellow", "Peach Rose", "Cool Cyan"],
+                    {"default": "Neutral"}
+                ),
+                "highlight_intensity": ("FLOAT", {
+                    "default": 0.0,
+                    "min": 0.0,
+                    "max": 1.0,
+                    "step": 0.05,
+                }),
+                "balance": ("FLOAT", {
+                    "default": 0.0,
+                    "min": -1.0,
+                    "max": 1.0,
+                    "step": 0.05,
+                }),
+                "micro_contrast": ("FLOAT", {
+                    "default": 0.0,
+                    "min": 0.0,
+                    "max": 1.0,
+                    "step": 0.05,
+                }),
+                "clarity": ("FLOAT", {
+                    "default": 0.0,
+                    "min": 0.0,
+                    "max": 1.0,
+                    "step": 0.05,
                 }),
                 "enable_preview": ("BOOLEAN", {"default": True}),
                 "clip_output": ("BOOLEAN", {"default": True}),
@@ -264,7 +297,7 @@ class HackAfterDarkLiveGrade:
         self,
         image,
         lut_file,
-        strength=1.0,
+        lut_strength=1.0,
         exposure=0.0,
         contrast=1.0,
         black_lift=0.0,
@@ -272,9 +305,20 @@ class HackAfterDarkLiveGrade:
         saturation=1.0,
         tint_green_magenta=0.0,
         tint_amber_blue=0.0,
+        shadow_tint="Neutral",
+        shadow_intensity=0.0,
+        highlight_tint="Neutral",
+        highlight_intensity=0.0,
+        balance=0.0,
+        micro_contrast=0.0,
+        clarity=0.0,
         enable_preview=True,
-        clip_output=True
+        clip_output=True,
+        **kwargs
     ):
+        if "strength" in kwargs:
+            lut_strength = kwargs["strength"]
+
         out_image = image.clone()
         B, H, W, C = out_image.shape
 
@@ -283,13 +327,13 @@ class HackAfterDarkLiveGrade:
 
         # 1. LUT Application
         lut_path = self.resolve_lut_path(lut_file)
-        if lut_path and os.path.exists(lut_path) and strength > 0.0:
+        if lut_path and os.path.exists(lut_path) and lut_strength > 0.0:
             lut_tensor = load_cube_lut(lut_path).to(device=image.device, dtype=image.dtype)
             grid_coords = (out_image * 2.0 - 1.0).unsqueeze(1)  # Shape (B, 1, H, W, 3)
             lut_batch = lut_tensor.repeat(B, 1, 1, 1, 1)
             mapped_ncdhw = F.grid_sample(lut_batch, grid_coords, mode="bilinear", padding_mode="border", align_corners=True)
             mapped_img = mapped_ncdhw.squeeze(2).permute(0, 2, 3, 1)
-            out_image = (1.0 - strength) * out_image + strength * mapped_img
+            out_image = (1.0 - lut_strength) * out_image + lut_strength * mapped_img
 
         # 2. Tonality Adjustments: Exposure -> Contrast -> Black Lift
         if exposure != 0.0:
@@ -321,6 +365,61 @@ class HackAfterDarkLiveGrade:
             tint_vec = torch.tensor([r_offset, g_offset, b_offset], device=out_image.device, dtype=out_image.dtype)
             out_image = out_image + tint_vec
 
+        # 5. Split Toning (Shadow & Highlight Tints + Balance)
+        if (shadow_tint != "Neutral" and shadow_intensity > 0.0) or (highlight_tint != "Neutral" and highlight_intensity > 0.0):
+            luminance = (
+                0.2126 * out_image[..., 0] +
+                0.7152 * out_image[..., 1] +
+                0.0722 * out_image[..., 2]
+            )
+            midpoint = 0.5 + balance * 0.35
+            mid_safe_s = max(0.01, midpoint)
+            mid_safe_h = max(0.01, 1.0 - midpoint)
+            shadow_weight = torch.clamp((midpoint - luminance) / mid_safe_s, 0.0, 1.0)
+            highlight_weight = torch.clamp((luminance - midpoint) / mid_safe_h, 0.0, 1.0)
+
+            shadow_weight = shadow_weight.unsqueeze(-1)
+            highlight_weight = highlight_weight.unsqueeze(-1)
+
+            # Shadow tint offsets [R, G, B]
+            if shadow_tint == "Teal / Cyan":
+                s_offset = torch.tensor([-0.20, 0.10, 0.20], device=out_image.device, dtype=out_image.dtype)
+            elif shadow_tint == "Deep Blue":
+                s_offset = torch.tensor([-0.15, -0.05, 0.25], device=out_image.device, dtype=out_image.dtype)
+            elif shadow_tint == "Emerald Green":
+                s_offset = torch.tensor([-0.15, 0.25, -0.10], device=out_image.device, dtype=out_image.dtype)
+            elif shadow_tint == "Warm Sepia":
+                s_offset = torch.tensor([0.25, 0.10, -0.15], device=out_image.device, dtype=out_image.dtype)
+            else:
+                s_offset = torch.tensor([0.0, 0.0, 0.0], device=out_image.device, dtype=out_image.dtype)
+
+            # Highlight tint offsets [R, G, B]
+            if highlight_tint == "Golden Amber":
+                h_offset = torch.tensor([0.25, 0.15, -0.20], device=out_image.device, dtype=out_image.dtype)
+            elif highlight_tint == "Warm Yellow":
+                h_offset = torch.tensor([0.20, 0.20, -0.20], device=out_image.device, dtype=out_image.dtype)
+            elif highlight_tint == "Peach Rose":
+                h_offset = torch.tensor([0.25, -0.05, 0.10], device=out_image.device, dtype=out_image.dtype)
+            elif highlight_tint == "Cool Cyan":
+                h_offset = torch.tensor([-0.15, 0.15, 0.25], device=out_image.device, dtype=out_image.dtype)
+            else:
+                h_offset = torch.tensor([0.0, 0.0, 0.0], device=out_image.device, dtype=out_image.dtype)
+
+            if shadow_tint != "Neutral" and shadow_intensity > 0.0:
+                out_image[..., :3] = out_image[..., :3] + shadow_weight * shadow_intensity * s_offset.view(1, 1, 1, 3)
+
+            if highlight_tint != "Neutral" and highlight_intensity > 0.0:
+                out_image[..., :3] = out_image[..., :3] + highlight_weight * highlight_intensity * h_offset.view(1, 1, 1, 3)
+
+        # 6. Micro-Contrast / Clarity
+        mc_amount = max(micro_contrast, clarity)
+        if mc_amount > 0.0:
+            img_perm = out_image.permute(0, 3, 1, 2)  # [B, C, H, W]
+            low_pass = F.avg_pool2d(img_perm, kernel_size=5, stride=1, padding=2)
+            high_pass = img_perm - low_pass
+            img_perm = img_perm + high_pass * (mc_amount * 1.2)
+            out_image = img_perm.permute(0, 2, 3, 1)
+
         # 5. Output Clipping
         if clip_output:
             out_image = torch.clamp(out_image, 0.0, 1.0)
@@ -335,10 +434,9 @@ class HackAfterDarkLiveGrade:
                 session_id = uuid.uuid4().hex[:8]
                 orig_fn = f"livegrade_orig_{session_id}.png"
 
-                # Save original sample thumbnail for client-side live grading
+                # Save original sample image for client-side live grading at full resolution
                 orig_np = (image[0].cpu().numpy() * 255).astype(np.uint8)
                 orig_pil = Image.fromarray(orig_np)
-                orig_pil.thumbnail((512, 512))
                 orig_pil.save(os.path.join(temp_dir, orig_fn), format="PNG")
 
                 ui_results["livegrade_images"] = [
@@ -355,5 +453,5 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "HackAfterDarkLiveGrade": "HackAfterDark Live Grade"
+    "HackAfterDarkLiveGrade": "AfterDark Live Grade"
 }

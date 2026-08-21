@@ -88,10 +88,20 @@ async def get_lut_data(request):
                 line = line.strip()
                 if line == "" or line.startswith("#"):
                     continue
+                if '#' in line:
+                    line = line.split('#')[0].strip()
                 if "LUT_3D_SIZE" in line:
-                    size = int(line.split()[-1])
-                elif all(c in "0123456789.+-eE " for c in line) and len(line.split()) == 3:
-                    lut_data.append([float(v) for v in line.split()])
+                    try:
+                        size = int(line.split()[-1])
+                    except ValueError:
+                        pass
+                else:
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        try:
+                            lut_data.append([float(parts[0]), float(parts[1]), float(parts[2])])
+                        except ValueError:
+                            pass
 
         if size is None or len(lut_data) != size**3:
             return web.json_response({"error": "Invalid LUT format"}, status=400)

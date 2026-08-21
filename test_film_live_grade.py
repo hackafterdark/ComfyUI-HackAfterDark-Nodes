@@ -46,7 +46,7 @@ class TestFilmLiveGrade(unittest.TestCase):
         req = input_types["required"]
         self.assertIn("image", req)
         self.assertIn("lut_file", req)
-        self.assertIn("strength", req)
+        self.assertIn("lut_strength", req)
         self.assertIn("exposure", req)
         self.assertIn("contrast", req)
         self.assertIn("black_lift", req)
@@ -54,6 +54,7 @@ class TestFilmLiveGrade(unittest.TestCase):
         self.assertIn("saturation", req)
         self.assertIn("tint_green_magenta", req)
         self.assertIn("tint_amber_blue", req)
+        self.assertIn("micro_contrast", req)
 
     def test_tonality_exposure(self):
         # Exposure +1 EV should double RGB values prior to clipping
@@ -140,6 +141,34 @@ class TestFilmLiveGrade(unittest.TestCase):
         self.assertEqual(len(res["ui"]["livegrade_images"]), 1)
         self.assertEqual(res["ui"]["livegrade_images"][0]["type"], "temp")
 
+    def test_split_toning(self):
+        # Test applying shadow tint (Teal / Cyan) to dark pixels
+        img = torch.full((1, 8, 8, 3), 0.1, dtype=torch.float32)
+        res = self.node.apply_live_grade(
+            image=img,
+            lut_file="None",
+            shadow_tint="Teal / Cyan",
+            shadow_intensity=0.5,
+            enable_preview=False
+        )
+        out_img = res["result"][0]
+        self.assertLess(out_img[0, 0, 0, 0].item(), 0.1) # Red reduced
+        self.assertGreater(out_img[0, 0, 0, 1].item(), 0.1) # Green boosted
+        self.assertGreater(out_img[0, 0, 0, 2].item(), 0.1) # Blue boosted
+
+    def test_micro_contrast(self):
+        # Test applying micro_contrast high-pass sharpening to textured image
+        img = torch.zeros((1, 16, 16, 3), dtype=torch.float32)
+        img[..., 7:9, 7:9, :] = 1.0 # High contrast center dot
+        res = self.node.apply_live_grade(
+            image=img,
+            lut_file="None",
+            micro_contrast=0.5,
+            enable_preview=False
+        )
+        out_img = res["result"][0]
+        self.assertEqual(out_img.shape, img.shape)
+
     def test_lut_application_with_cube(self):
         # Create a simple 2x2x2 identity cube LUT
         with tempfile.NamedTemporaryFile(mode="w", suffix=".cube", delete=False) as tmp:
@@ -172,3 +201,4 @@ class TestFilmLiveGrade(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

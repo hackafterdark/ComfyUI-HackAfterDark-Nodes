@@ -62,18 +62,42 @@ function sampleLut(r, g, b, lut) {
     const c011 = getVal(x0, y1, z1);
     const c111 = getVal(x1, y1, z1);
 
-    const c00 = [c000[0] * (1 - dx) + c100[0] * dx, c000[1] * (1 - dx) + c100[1] * dx, c000[2] * (1 - dx) + c100[2] * dx];
-    const c10 = [c010[0] * (1 - dx) + c110[0] * dx, c010[1] * (1 - dx) + c110[1] * dx, c010[2] * (1 - dx) + c110[2] * dx];
-    const c01 = [c001[0] * (1 - dx) + c101[0] * dx, c001[1] * (1 - dx) + c101[1] * dx, c001[2] * (1 - dx) + c101[2] * dx];
-    const c11 = [c011[0] * (1 - dx) + c111[0] * dx, c011[1] * (1 - dx) + c111[1] * dx, c011[2] * (1 - dx) + c111[2] * dx];
+    const c00 = [
+        c000[0] + dx * (c100[0] - c000[0]),
+        c000[1] + dx * (c100[1] - c000[1]),
+        c000[2] + dx * (c100[2] - c000[2])
+    ];
+    const c10 = [
+        c010[0] + dx * (c110[0] - c010[0]),
+        c010[1] + dx * (c110[1] - c010[1]),
+        c010[2] + dx * (c110[2] - c010[2])
+    ];
+    const c01 = [
+        c001[0] + dx * (c101[0] - c001[0]),
+        c001[1] + dx * (c101[1] - c001[1]),
+        c001[2] + dx * (c101[2] - c001[2])
+    ];
+    const c11 = [
+        c011[0] + dx * (c111[0] - c011[0]),
+        c011[1] + dx * (c111[1] - c011[1]),
+        c011[2] + dx * (c111[2] - c011[2])
+    ];
 
-    const c0 = [c00[0] * (1 - dy) + c10[0] * dy, c00[1] * (1 - dy) + c10[1] * dy, c00[2] * (1 - dy) + c10[2] * dy];
-    const c1 = [c01[0] * (1 - dy) + c11[0] * dy, c01[1] * (1 - dy) + c11[1] * dy, c01[2] * (1 - dy) + c11[2] * dy];
+    const c0 = [
+        c00[0] + dy * (c10[0] - c00[0]),
+        c00[1] + dy * (c10[1] - c00[1]),
+        c00[2] + dy * (c10[2] - c00[2])
+    ];
+    const c1 = [
+        c01[0] + dy * (c11[0] - c01[0]),
+        c01[1] + dy * (c11[1] - c01[1]),
+        c01[2] + dy * (c11[2] - c01[2])
+    ];
 
     return [
-        c0[0] * (1 - dz) + c1[0] * dz,
-        c0[1] * (1 - dz) + c1[1] * dz,
-        c0[2] * (1 - dz) + c1[2] * dz
+        c0[0] + dz * (c1[0] - c0[0]),
+        c0[1] + dz * (c1[1] - c0[1]),
+        c0[2] + dz * (c1[2] - c0[2])
     ];
 }
 
@@ -173,7 +197,7 @@ function openLightbox(initialMode, node) {
     `;
 
     const btnAfter = document.createElement("button");
-    btnAfter.innerHTML = "AFTER (Live Graded)";
+    btnAfter.innerHTML = "AFTER (Color Graded)";
     btnAfter.style.cssText = `
         border: none;
         padding: 8px 18px;
@@ -385,6 +409,189 @@ app.registerExtension({
             return w ? w.value : def;
         };
 
+        // Add Global Reset Button at top of node
+        node.addWidget("button", "↺ Reset All Grade Settings", "reset", () => {
+            const defaults = {
+                lut_file: "None",
+                lut_strength: 1.0,
+                strength: 1.0,
+                exposure: 0.0,
+                contrast: 1.0,
+                black_lift: 0.0,
+                hue: 0.0,
+                saturation: 1.0,
+                tint_green_magenta: 0.0,
+                tint_amber_blue: 0.0,
+                shadow_tint: "Neutral",
+                shadow_intensity: 0.0,
+                highlight_tint: "Neutral",
+                highlight_intensity: 0.0,
+                balance: 0.0,
+                micro_contrast: 0.0,
+                clarity: 0.0,
+                enable_preview: true,
+                clip_output: true
+            };
+            (node.widgets || []).forEach(w => {
+                if (defaults[w.name] !== undefined) {
+                    w.value = defaults[w.name];
+                }
+            });
+            node.updateClientLivePreview();
+        });
+
+        // Setup custom widget drawers & mouse handlers for color sliders (tint_green_magenta, tint_amber_blue, hue)
+        (node.widgets || []).forEach(widget => {
+            if (["tint_green_magenta", "tint_amber_blue", "hue"].includes(widget.name)) {
+                // Custom widget type for smooth 60fps spectrum rendering & precise micro-dragging
+                widget.type = "custom_spectrum_slider";
+
+                widget.draw = function(ctx, nodeRef, widget_width, y, widget_height) {
+                    const margin = 12;
+                    const trackX = margin;
+                    const trackY = y + 18;
+                    const trackW = widget_width - margin * 2;
+                    const trackH = 14;
+
+                    ctx.save();
+
+                    // 1. Left Label Header
+                    ctx.font = "bold 11px Inter, sans-serif";
+                    ctx.fillStyle = "#CCCCCC";
+                    ctx.textAlign = "left";
+                    const displayName = widget.name.toUpperCase().replace(/_/g, " ");
+                    ctx.fillText(displayName, trackX, y + 12);
+
+                    // 2. Right Side: Value Display
+                    const val = widget.value !== undefined ? widget.value : 0;
+                    let valStr = "";
+                    if (widget.name === "hue") {
+                        valStr = Math.round(val) + "°";
+                    } else {
+                        valStr = Number(val).toFixed(2);
+                    }
+
+                    ctx.font = "bold 11px Inter, sans-serif";
+                    ctx.textAlign = "right";
+                    ctx.fillStyle = "#10B981";
+                    ctx.fillText(valStr, trackX + trackW, y + 12);
+
+                    // 3. Thick Spectrum Color Track
+                    const grad = ctx.createLinearGradient(trackX, 0, trackX + trackW, 0);
+                    if (widget.name === "tint_green_magenta") {
+                        grad.addColorStop(0.00, "#10B981"); // Emerald Green (-1.0)
+                        grad.addColorStop(0.50, "#374151"); // Neutral (0.0)
+                        grad.addColorStop(1.00, "#EC4899"); // Magenta (+1.0)
+                    } else if (widget.name === "tint_amber_blue") {
+                        grad.addColorStop(0.00, "#F59E0B"); // Warm Amber (-1.0)
+                        grad.addColorStop(0.50, "#374151"); // Neutral (0.0)
+                        grad.addColorStop(1.00, "#3B82F6"); // Teal/Blue (+1.0)
+                    } else if (widget.name === "hue") {
+                        grad.addColorStop(0.00, "#FF0000");
+                        grad.addColorStop(0.17, "#FFFF00");
+                        grad.addColorStop(0.33, "#00FF00");
+                        grad.addColorStop(0.50, "#00FFFF");
+                        grad.addColorStop(0.67, "#0000FF");
+                        grad.addColorStop(0.83, "#FF00FF");
+                        grad.addColorStop(1.00, "#FF0000");
+                    }
+
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.roundRect(trackX, trackY, trackW, trackH, 6);
+                    ctx.fill();
+
+                    // Center Zero Tick Mark
+                    const centerX = trackX + trackW / 2;
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+                    ctx.fillRect(centerX - 1, trackY, 2, trackH);
+
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    // 4. Glowing White Indicator Thumb / Marker Bar
+                    const min = widget.options?.min ?? (widget.name === "hue" ? -180 : -1);
+                    const max = widget.options?.max ?? (widget.name === "hue" ? 180 : 1);
+                    const pct = Math.max(0, Math.min(1, (val - min) / (max - min)));
+
+                    const markerX = trackX + pct * trackW;
+                    const markerY = trackY - 2;
+                    const markerW = 6;
+                    const markerH = trackH + 4;
+
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                    ctx.shadowBlur = 4;
+                    ctx.beginPath();
+                    ctx.roundRect(markerX - markerW / 2, markerY, markerW, markerH, 3);
+                    ctx.fill();
+
+                    ctx.strokeStyle = "#111827";
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    ctx.restore();
+                };
+
+                widget.computeSize = function(width) {
+                    return [width || 300, 38];
+                };
+
+                // Mouse Drag Handler (Linear continuous calculation for precise micro-adjustments like 0.01)
+                widget.mouse = function(event, pos, nodeRef) {
+                    const margin = 12;
+                    const trackW = nodeRef.size[0] - margin * 2;
+                    const min = this.options?.min ?? (this.name === "hue" ? -180 : -1);
+                    const max = this.options?.max ?? (this.name === "hue" ? 180 : 1);
+
+                    if (event.type === "pointerdown" || event.type === "mousedown" || event.type === "pointermove" || event.type === "mousemove") {
+                        if (event.type.includes("move") && event.buttons !== 1) return false;
+                        
+                        const relX = Math.max(0, Math.min(trackW, pos[0] - margin));
+                        const pct = relX / trackW;
+                        const rawVal = min + pct * (max - min);
+
+                        this.value = rawVal;
+                        if (nodeRef.updateClientLivePreview) nodeRef.updateClientLivePreview();
+                        if (nodeRef.setDirtyCanvas) nodeRef.setDirtyCanvas(true, true);
+                        return true;
+                    }
+                    return false;
+                };
+            }
+        });
+
+        // Function to insert dedicated reset button directly beneath its corresponding color control
+        const addResetButtonBeneath = (targetName, label, resetCallback) => {
+            const btn = node.addWidget("button", label, "btn_reset_" + targetName, resetCallback);
+            const targetIdx = node.widgets.findIndex(w => w.name === targetName);
+            const btnIdx = node.widgets.indexOf(btn);
+            if (targetIdx !== -1 && btnIdx !== -1 && btnIdx !== targetIdx + 1) {
+                node.widgets.splice(btnIdx, 1);
+                node.widgets.splice(targetIdx + 1, 0, btn);
+            }
+        };
+
+        // Position individual reset buttons directly below each respective spectrum slider
+        addResetButtonBeneath("hue", "↺ Reset Hue to 0°", () => {
+            const w = node.widgets?.find(w => w.name === "hue");
+            if (w) w.value = 0.0;
+            node.updateClientLivePreview();
+        });
+
+        addResetButtonBeneath("tint_green_magenta", "↺ Reset Tint (Green/Magenta) to 0", () => {
+            const w = node.widgets?.find(w => w.name === "tint_green_magenta");
+            if (w) w.value = 0.0;
+            node.updateClientLivePreview();
+        });
+
+        addResetButtonBeneath("tint_amber_blue", "↺ Reset Tint (Amber/Blue) to 0", () => {
+            const w = node.widgets?.find(w => w.name === "tint_amber_blue");
+            if (w) w.value = 0.0;
+            node.updateClientLivePreview();
+        });
+
         // Client-Side Real-Time Color Grading Engine
         node.updateClientLivePreview = async function () {
             const state = this.liveGradeState;
@@ -393,7 +600,7 @@ app.registerExtension({
             state.isUpdating = true;
             try {
                 const lutFile = getWidgetVal("lut_file", "None");
-                const strength = Number(getWidgetVal("strength", 1.0));
+                const lutStrength = Number(getWidgetVal("lut_strength", getWidgetVal("strength", 1.0)));
                 const exposure = Number(getWidgetVal("exposure", 0.0));
                 const contrast = Number(getWidgetVal("contrast", 1.0));
                 const blackLift = Number(getWidgetVal("black_lift", 0.0));
@@ -401,10 +608,19 @@ app.registerExtension({
                 const saturation = Number(getWidgetVal("saturation", 1.0));
                 const tintGM = Number(getWidgetVal("tint_green_magenta", 0.0));
                 const tintAB = Number(getWidgetVal("tint_amber_blue", 0.0));
+
+                const shadowTint = getWidgetVal("shadow_tint", "Neutral");
+                const shadowIntensity = Number(getWidgetVal("shadow_intensity", 0.0));
+                const highlightTint = getWidgetVal("highlight_tint", "Neutral");
+                const highlightIntensity = Number(getWidgetVal("highlight_intensity", 0.0));
+                const balance = Number(getWidgetVal("balance", 0.0));
+                const microContrast = Number(getWidgetVal("micro_contrast", 0.0));
+                const clarity = Number(getWidgetVal("clarity", 0.0));
+
                 const clipOutput = Boolean(getWidgetVal("clip_output", true));
 
                 let lutData = null;
-                if (lutFile && lutFile !== "None" && lutFile !== "No LUTs found" && strength > 0) {
+                if (lutFile && lutFile !== "None" && lutFile !== "No LUTs found" && lutStrength > 0) {
                     lutData = await fetchLutData(lutFile);
                 }
 
@@ -417,6 +633,23 @@ app.registerExtension({
                 const dst = dstData.data;
                 const numPixels = W * H;
 
+                // Split Toning Color Tint Offsets [R, G, B]
+                let sOffset = [0.0, 0.0, 0.0];
+                if (shadowTint === "Teal / Cyan") sOffset = [-0.20, 0.10, 0.20];
+                else if (shadowTint === "Deep Blue") sOffset = [-0.15, -0.05, 0.25];
+                else if (shadowTint === "Emerald Green") sOffset = [-0.15, 0.25, -0.10];
+                else if (shadowTint === "Warm Sepia") sOffset = [0.25, 0.10, -0.15];
+
+                let hOffset = [0.0, 0.0, 0.0];
+                if (highlightTint === "Golden Amber") hOffset = [0.25, 0.15, -0.20];
+                else if (highlightTint === "Warm Yellow") hOffset = [0.20, 0.20, -0.20];
+                else if (highlightTint === "Peach Rose") hOffset = [0.25, -0.05, 0.10];
+                else if (highlightTint === "Cool Cyan") hOffset = [-0.15, 0.15, 0.25];
+
+                const midpoint = 0.5 + balance * 0.35;
+                const midSafeS = Math.max(0.01, midpoint);
+                const midSafeH = Math.max(0.01, 1.0 - midpoint);
+
                 for (let i = 0; i < numPixels; i++) {
                     const px = i * 4;
                     let r = src[px] / 255.0;
@@ -425,11 +658,11 @@ app.registerExtension({
                     const a = src[px + 3];
 
                     // 1. 3D LUT Application
-                    if (lutData && strength > 0) {
+                    if (lutData && lutStrength > 0) {
                         const [lr, lg, lb] = sampleLut(r, g, b, lutData);
-                        r = (1.0 - strength) * r + strength * lr;
-                        g = (1.0 - strength) * g + strength * lg;
-                        b = (1.0 - strength) * b + strength * lb;
+                        r = (1.0 - lutStrength) * r + lutStrength * lr;
+                        g = (1.0 - lutStrength) * g + lutStrength * lg;
+                        b = (1.0 - lutStrength) * b + lutStrength * lb;
                     }
 
                     // 2. Tonality: Exposure -> Contrast -> Black Lift
@@ -482,7 +715,25 @@ app.registerExtension({
                         b += 0.25 * tintGM - 0.50 * tintAB;
                     }
 
-                    // 5. Output Clipping
+                    // 5. Split Toning
+                    if ((shadowTint !== "Neutral" && shadowIntensity > 0) || (highlightTint !== "Neutral" && highlightIntensity > 0)) {
+                        const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                        const sw = Math.max(0, Math.min(1, (midpoint - lum) / midSafeS));
+                        const hw = Math.max(0, Math.min(1, (lum - midpoint) / midSafeH));
+
+                        if (sw > 0 && shadowTint !== "Neutral" && shadowIntensity > 0) {
+                            r += sw * shadowIntensity * sOffset[0];
+                            g += sw * shadowIntensity * sOffset[1];
+                            b += sw * shadowIntensity * sOffset[2];
+                        }
+                        if (hw > 0 && highlightTint !== "Neutral" && highlightIntensity > 0) {
+                            r += hw * highlightIntensity * hOffset[0];
+                            g += hw * highlightIntensity * hOffset[1];
+                            b += hw * highlightIntensity * hOffset[2];
+                        }
+                    }
+
+                    // 6. Output Clipping
                     if (clipOutput) {
                         r = Math.max(0, Math.min(1, r));
                         g = Math.max(0, Math.min(1, g));
@@ -493,6 +744,51 @@ app.registerExtension({
                     dst[px + 1] = Math.round(g * 255);
                     dst[px + 2] = Math.round(b * 255);
                     dst[px + 3] = a;
+                }
+
+                // 7. Micro-Contrast / Clarity (High-Pass Convolution Filter)
+                const mcAmount = Math.max(microContrast, clarity);
+                if (mcAmount > 0.0) {
+                    const cMult = mcAmount * 1.2;
+                    const copyData = new Uint8ClampedArray(dst);
+
+                    for (let y = 1; y < H - 1; y++) {
+                        for (let x = 1; x < W - 1; x++) {
+                            const p = (y * W + x) * 4;
+
+                            // 3x3 Average low pass
+                            let sumR = 0, sumG = 0, sumB = 0;
+                            for (let dy = -1; dy <= 1; dy++) {
+                                for (let dx = -1; dx <= 1; dx++) {
+                                    const np = ((y + dy) * W + (x + dx)) * 4;
+                                    sumR += copyData[np];
+                                    sumG += copyData[np + 1];
+                                    sumB += copyData[np + 2];
+                                }
+                            }
+                            const avgR = sumR / 9.0;
+                            const avgG = sumG / 9.0;
+                            const avgB = sumB / 9.0;
+
+                            const hpR = copyData[p] - avgR;
+                            const hpG = copyData[p + 1] - avgG;
+                            const hpB = copyData[p + 2] - avgB;
+
+                            let nr = copyData[p] + hpR * cMult;
+                            let ng = copyData[p + 1] + hpG * cMult;
+                            let nb = copyData[p + 2] + hpB * cMult;
+
+                            if (clipOutput) {
+                                nr = Math.max(0, Math.min(255, nr));
+                                ng = Math.max(0, Math.min(255, ng));
+                                nb = Math.max(0, Math.min(255, nb));
+                            }
+
+                            dst[p] = Math.round(nr);
+                            dst[p + 1] = Math.round(ng);
+                            dst[p + 2] = Math.round(nb);
+                        }
+                    }
                 }
 
                 state.gradedCtx.putImageData(dstData, 0, 0);
@@ -542,19 +838,21 @@ app.registerExtension({
                 state.origCanvas = document.createElement("canvas");
                 state.origCanvas.width = w;
                 state.origCanvas.height = h;
-                state.origCtx = state.origCanvas.getContext("2d");
+                state.origCtx = state.origCanvas.getContext("2d", { willReadFrequently: true });
+                if (state.origCtx) state.origCtx.imageSmoothingQuality = "high";
                 state.origCtx.drawImage(img, 0, 0, w, h);
 
                 state.gradedCanvas = document.createElement("canvas");
                 state.gradedCanvas.width = w;
                 state.gradedCanvas.height = h;
-                state.gradedCtx = state.gradedCanvas.getContext("2d");
+                state.gradedCtx = state.gradedCanvas.getContext("2d", { willReadFrequently: true });
+                if (state.gradedCtx) state.gradedCtx.imageSmoothingQuality = "high";
 
                 state.origImg = img;
                 state.currentUrl = url;
                 state.hasImage = true;
 
-                const minHeight = 460;
+                const minHeight = 650;
                 if (this.size[1] < minHeight) {
                     this.setSize([Math.max(this.size[0], 340), minHeight]);
                 }
@@ -582,15 +880,15 @@ app.registerExtension({
             };
         });
 
-        // Click handler to launch Full-Screen Lightbox Asset Viewer when clicking node preview box
+        // Mouse click handler for Lightbox
         const origOnMouseDown = node.onMouseDown;
         node.onMouseDown = function (event, pos, canvas) {
             this.imgs = null; // Always suppress standard ComfyUI image preview click capture
 
-            let widgetsHeight = 280;
+            let widgetsHeight = 650;
             if (this.widgets && this.widgets.length > 0) {
                 const lastWidget = this.widgets[this.widgets.length - 1];
-                widgetsHeight = lastWidget.last_y ? lastWidget.last_y + 30 : 280;
+                widgetsHeight = lastWidget.last_y ? lastWidget.last_y + 30 : 650;
             }
 
             const pad = 12;
@@ -655,19 +953,21 @@ app.registerExtension({
                     state.origCanvas = document.createElement("canvas");
                     state.origCanvas.width = w;
                     state.origCanvas.height = h;
-                    state.origCtx = state.origCanvas.getContext("2d");
+                    state.origCtx = state.origCanvas.getContext("2d", { willReadFrequently: true });
+                    if (state.origCtx) state.origCtx.imageSmoothingQuality = "high";
                     state.origCtx.drawImage(img, 0, 0, w, h);
 
                     state.gradedCanvas = document.createElement("canvas");
                     state.gradedCanvas.width = w;
                     state.gradedCanvas.height = h;
-                    state.gradedCtx = state.gradedCanvas.getContext("2d");
+                    state.gradedCtx = state.gradedCanvas.getContext("2d", { willReadFrequently: true });
+                    if (state.gradedCtx) state.gradedCtx.imageSmoothingQuality = "high";
 
                     state.origImg = img;
                     state.currentUrl = imgUrl;
                     state.hasImage = true;
 
-                    const minHeight = 460;
+                    const minHeight = 650;
                     if (node.size[1] < minHeight) {
                         node.setSize([Math.max(node.size[0], 340), minHeight]);
                     }
@@ -688,10 +988,49 @@ app.registerExtension({
 
             if (this.flags.collapsed) return;
 
-            let widgetsHeight = 280;
+            // Draw sleek disabled overlays over shadow_intensity / highlight_intensity ONLY when their tint is Neutral
+            const sTint = getWidgetVal("shadow_tint", "Neutral");
+            const hTint = getWidgetVal("highlight_tint", "Neutral");
+            const sIntW = this.widgets?.find(w => w.name === "shadow_intensity");
+            const hIntW = this.widgets?.find(w => w.name === "highlight_intensity");
+
+            const drawDisabledOverlay = (widget, text) => {
+                if (!widget || !widget.last_y) return;
+                ctx.save();
+                const pad = 12;
+                const wX = pad;
+                const wY = widget.last_y;
+                const wW = this.size[0] - pad * 2;
+                const wH = 24;
+
+                ctx.fillStyle = "rgba(22, 25, 33, 0.94)";
+                ctx.beginPath();
+                ctx.roundRect(wX, wY, wW, wH, 4);
+                ctx.fill();
+
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillStyle = "#6B7280";
+                ctx.font = "italic 10px Inter, sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(text, wX + wW / 2, wY + wH / 2 + 3);
+
+                ctx.restore();
+            };
+
+            if (sTint === "Neutral" && sIntW) {
+                drawDisabledOverlay(sIntW, "(Select shadow tint to enable)");
+            }
+            if (hTint === "Neutral" && hIntW) {
+                drawDisabledOverlay(hTint, "(Select highlight tint to enable)");
+            }
+
+            let widgetsHeight = 650;
             if (this.widgets && this.widgets.length > 0) {
                 const lastWidget = this.widgets[this.widgets.length - 1];
-                widgetsHeight = lastWidget.last_y ? lastWidget.last_y + 30 : 280;
+                widgetsHeight = lastWidget.last_y ? lastWidget.last_y + 30 : 650;
             }
 
             const pad = 12;
@@ -766,7 +1105,7 @@ app.registerExtension({
                 ctx.fillText("ORIGINAL", leftX + 4, leftY - 6);
 
                 ctx.fillStyle = "#10B981";
-                ctx.fillText("LIVE GRADED (REAL-TIME)", rightX + 4, rightY - 6);
+                ctx.fillText("COLOR GRADED", rightX + 4, rightY - 6);
             }
 
             ctx.restore();

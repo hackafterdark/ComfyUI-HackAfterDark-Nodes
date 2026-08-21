@@ -196,7 +196,7 @@ A high-performance 3D LUT (Look-Up Table) color grading node. Reads `.cube` LUT 
 
 ---
 
-# HackAfterDark Live Grade
+# AfterDark Live Grade
 
 An interactive live color grading node with real-time parameter reactivity and dual thumbnail preview.
 
