@@ -429,7 +429,7 @@ app.registerExtension({
                 balance: 0.0,
                 micro_contrast: 0.0,
                 clarity: 0.0,
-                enable_preview: true,
+                output_original: true,
                 clip_output: true
             };
             (node.widgets || []).forEach(w => {

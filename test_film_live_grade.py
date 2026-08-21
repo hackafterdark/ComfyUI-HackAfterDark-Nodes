@@ -63,7 +63,7 @@ class TestFilmLiveGrade(unittest.TestCase):
             image=img,
             lut_file="None",
             exposure=1.0,
-            enable_preview=False,
+            output_original=False,
             clip_output=True
         )
         out_img = res["result"][0]
@@ -76,7 +76,7 @@ class TestFilmLiveGrade(unittest.TestCase):
             image=img,
             lut_file="None",
             contrast=1.5,
-            enable_preview=False,
+            output_original=False,
             clip_output=True
         )
         out_img = res["result"][0]
@@ -89,7 +89,7 @@ class TestFilmLiveGrade(unittest.TestCase):
             image=img,
             lut_file="None",
             black_lift=0.1,
-            enable_preview=False,
+            output_original=False,
             clip_output=True
         )
         out_img = res["result"][0]
@@ -103,7 +103,7 @@ class TestFilmLiveGrade(unittest.TestCase):
             image=img,
             lut_file="None",
             hue=120.0,
-            enable_preview=False,
+            output_original=False,
             clip_output=True
         )
         out_img = res["result"][0]
@@ -118,7 +118,7 @@ class TestFilmLiveGrade(unittest.TestCase):
             image=img,
             lut_file="None",
             tint_green_magenta=0.4,
-            enable_preview=False,
+            output_original=False,
             clip_output=True
         )
         out_img = res["result"][0]
@@ -134,12 +134,22 @@ class TestFilmLiveGrade(unittest.TestCase):
         res = self.node.apply_live_grade(
             image=img,
             lut_file="None",
-            enable_preview=True
+            output_original=True
         )
         self.assertIn("ui", res)
         self.assertIn("livegrade_images", res["ui"])
         self.assertEqual(len(res["ui"]["livegrade_images"]), 1)
         self.assertEqual(res["ui"]["livegrade_images"][0]["type"], "temp")
+
+    def test_legacy_enable_preview_kwarg(self):
+        img = torch.rand((1, 32, 32, 3), dtype=torch.float32)
+        res = self.node.apply_live_grade(
+            image=img,
+            lut_file="None",
+            enable_preview=True
+        )
+        self.assertIn("ui", res)
+        self.assertIn("livegrade_images", res["ui"])
 
     def test_split_toning(self):
         # Test applying shadow tint (Teal / Cyan) to dark pixels
@@ -149,7 +159,7 @@ class TestFilmLiveGrade(unittest.TestCase):
             lut_file="None",
             shadow_tint="Teal / Cyan",
             shadow_intensity=0.5,
-            enable_preview=False
+            output_original=False
         )
         out_img = res["result"][0]
         self.assertLess(out_img[0, 0, 0, 0].item(), 0.1) # Red reduced
@@ -164,7 +174,7 @@ class TestFilmLiveGrade(unittest.TestCase):
             image=img,
             lut_file="None",
             micro_contrast=0.5,
-            enable_preview=False
+            output_original=False
         )
         out_img = res["result"][0]
         self.assertEqual(out_img.shape, img.shape)
@@ -190,7 +200,7 @@ class TestFilmLiveGrade(unittest.TestCase):
                 image=img,
                 lut_file=tmp_path,
                 strength=1.0,
-                enable_preview=False
+                output_original=False
             )
             out_img = res["result"][0]
             self.assertEqual(out_img.shape, img.shape)

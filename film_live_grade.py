@@ -259,8 +259,8 @@ class HackAfterDarkLiveGrade:
                     "max": 1.0,
                     "step": 0.05,
                 }),
-                "enable_preview": ("BOOLEAN", {"default": True}),
                 "clip_output": ("BOOLEAN", {"default": True}),
+                "output_original": ("BOOLEAN", {"default": True}),
             }
         }
 
@@ -312,10 +312,12 @@ class HackAfterDarkLiveGrade:
         balance=0.0,
         micro_contrast=0.0,
         clarity=0.0,
-        enable_preview=True,
         clip_output=True,
+        output_original=True,
         **kwargs
     ):
+        if "enable_preview" in kwargs:
+            output_original = kwargs["enable_preview"]
         if "strength" in kwargs:
             lut_strength = kwargs["strength"]
 
@@ -426,7 +428,7 @@ class HackAfterDarkLiveGrade:
 
         # 6. Preview Image Generation for Frontend UI
         ui_results = {}
-        if enable_preview:
+        if output_original:
             try:
                 temp_dir = folder_paths.get_temp_directory() if hasattr(folder_paths, "get_temp_directory") else os.path.join(os.path.expanduser("~"), "ComfyUI", "temp")
                 os.makedirs(temp_dir, exist_ok=True)
