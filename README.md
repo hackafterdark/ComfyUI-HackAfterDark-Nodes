@@ -198,19 +198,24 @@ A high-performance 3D LUT (Look-Up Table) color grading node. Reads `.cube` LUT 
 
 # AfterDark Live Grade
 
-An interactive live color grading node with real-time parameter reactivity and dual thumbnail preview.
+An interactive real-time color grading node featuring a dual-column layout, client-side offscreen rendering for instant 60 FPS slider reactivity, split-wipe comparison tools, and a full-screen inspection lightbox.
 
 ## Features
 
-- **Live Interactive Grading**: Tunable parameters trigger instant background queue refreshes for a seamless live color-grading loop directly on the ComfyUI canvas.
-- **Dynamic LUT Directory Scanning**: Automatically populates `.cube` LUT files from `F:/ComfyUI/models/luts/`, `ComfyUI/models/luts/`, and local directories.
-- **Sequential PyTorch Tensor Pipeline**:
-  1. **3D LUT Application**: Trilinear GPU interpolation with blend `strength` slider.
-  2. **Tonality Adjustments**: Exposure EV stops, midtone `contrast`, and film toe `black_lift`.
-  3. **HSV Color Transformations**: Vectorized `hue` shift (-180° to +180°) and `saturation` scaling.
-  4. **Tint Offset Matrix**: Dual-axis tint correction for Green/Magenta and Amber/Blue casts.
-- **Dual Thumbnail Preview Panel**: Canvas preview rendering comparing **ORIGINAL** vs. **LIVE GRADED** output directly on the node face.
-- **Standalone Safety**: Fully independent from `AfterDark Film LUT` so legacy project workflows remain untouched.
+- **Instant Client-Side Offscreen Live Preview**: Adjusting sliders triggers real-time 60 FPS preview updates directly in your browser without waiting for ComfyUI execution queues or node re-renders.
+- **Interactive Viewport Modes**:
+  * **Graded Only**: Full-frame view of the final color-graded output.
+  * **Dual View**: Side-by-side comparison rendering **ORIGINAL** alongside **LIVE GRADED** output.
+  * **Split Wipe**: Interactive drag handle allowing 0% to 100% side-by-side wipe comparison directly on the image viewport.
+- **Full-Screen Lightbox Modal**: Click anywhere on the preview viewport to open a full-resolution inspection lightbox with zoom and pan controls.
+- **3D LUT Integration**: Direct access to `.cube` LUT files from `ComfyUI/models/luts/` with `"None"` as the default top option for quick clearing.
+- **Complete Grade Suite**:
+  * **Tonality**: Exposure EV stops ($-2.0 \to +2.0$), midtone `contrast` ($0.0 \to 2.0$), and film toe `black_lift` ($0.0 \to 0.20$).
+  * **Color Science**: Vectorized `hue` shift ($-180^\circ \to +180^\circ$) and `saturation` ($0.0 \to 2.0$).
+  * **Split Toning**: Independent `shadow_tint` and `highlight_tint` with dual-axis intensity offset controls.
+  * **Spatial Sharpness**: `micro_contrast` for fine textures and `clarity` for midtone structural pop.
+- **Precision Drag UI**: Color spectrum sliders, white thumb position indicators, 1:1 visual feedback, and quick reset buttons.
+- **1:1 Backend Parity**: Client-side canvas shaders match the PyTorch GPU tensor processing pipeline 1:1 when executing standard workflow runs.
 
 ### Micro Contrast vs. Clarity: What's the Difference?
 
