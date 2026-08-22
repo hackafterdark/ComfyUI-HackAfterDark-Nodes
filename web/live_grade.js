@@ -1310,12 +1310,12 @@ app.registerExtension({
             const leftColW = getLeftColWidth(this);
             const { rx, ry, rw, rh } = this.getRightColumnBounds();
 
-            // Allow LiteGraph node resize handle (bottom-right corner ~25px) to work normally!
-            if (pos[0] > this.size[0] - 25 && pos[1] > this.size[1] - 25) {
+            // 1. Allow LiteGraph node title header bar (pos[1] < 30) or resize handle (bottom-right ~25px) to move/resize node!
+            if (pos[1] < 30 || (pos[0] > this.size[0] - 25 && pos[1] > this.size[1] - 25)) {
                 return false;
             }
 
-            // Check if click is inside Right Column Area
+            // Check if click is inside Right Column Area below title header
             if (pos[0] > leftColW + 5) {
                 if (app.canvas) app.canvas.node_widget_drag = null;
 
