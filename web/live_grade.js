@@ -1177,17 +1177,15 @@ app.registerExtension({
                     dst[px + 3] = a;
                 }
 
-                // 7. Micro-Contrast / Clarity (High-Pass Convolution Filter)
-                const mcAmount = Math.max(microContrast, clarity);
-                if (mcAmount > 0.0) {
-                    const cMult = mcAmount * 1.2;
+                // 7. Micro-Contrast & Clarity
+                if (microContrast > 0.0) {
+                    const cMult = microContrast * 1.5;
                     const copyData = new Uint8ClampedArray(dst);
 
                     for (let y = 1; y < H - 1; y++) {
                         for (let x = 1; x < W - 1; x++) {
                             const p = (y * W + x) * 4;
 
-                            // 3x3 Average low pass
                             let sumR = 0, sumG = 0, sumB = 0;
                             for (let dy = -1; dy <= 1; dy++) {
                                 for (let dx = -1; dx <= 1; dx++) {
@@ -1197,13 +1195,9 @@ app.registerExtension({
                                     sumB += copyData[np + 2];
                                 }
                             }
-                            const avgR = sumR / 9.0;
-                            const avgG = sumG / 9.0;
-                            const avgB = sumB / 9.0;
-
-                            const hpR = copyData[p] - avgR;
-                            const hpG = copyData[p + 1] - avgG;
-                            const hpB = copyData[p + 2] - avgB;
+                            const hpR = copyData[p] - sumR / 9.0;
+                            const hpG = copyData[p + 1] - sumG / 9.0;
+                            const hpB = copyData[p + 2] - sumB / 9.0;
 
                             let nr = copyData[p] + hpR * cMult;
                             let ng = copyData[p + 1] + hpG * cMult;
@@ -1218,6 +1212,52 @@ app.registerExtension({
                             dst[p] = Math.round(nr);
                             dst[p + 1] = Math.round(ng);
                             dst[p + 2] = Math.round(nb);
+                        }
+                    }
+                }
+
+                if (clarity > 0.0) {
+                    const cMult = clarity * 1.5;
+                    const copyData = new Uint8ClampedArray(dst);
+                    const rad = 3;
+
+                    for (let y = rad; y < H - rad; y++) {
+                        for (let x = rad; x < W - rad; x++) {
+                            const p = (y * W + x) * 4;
+                            const r = copyData[p], g = copyData[p + 1], b = copyData[p + 2];
+                            const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
+                            const midMask = Math.max(0, 1.0 - Math.abs(lum - 0.5) * 2.0);
+
+                            if (midMask > 0.01) {
+                                let sumR = 0, sumG = 0, sumB = 0;
+                                let cnt = 0;
+                                for (let dy = -rad; dy <= rad; dy += 2) {
+                                    for (let dx = -rad; dx <= rad; dx += 2) {
+                                        const np = ((y + dy) * W + (x + dx)) * 4;
+                                        sumR += copyData[np];
+                                        sumG += copyData[np + 1];
+                                        sumB += copyData[np + 2];
+                                        cnt++;
+                                    }
+                                }
+                                const hpR = r - sumR / cnt;
+                                const hpG = g - sumG / cnt;
+                                const hpB = b - sumB / cnt;
+
+                                let nr = r + hpR * cMult * midMask;
+                                let ng = g + hpG * cMult * midMask;
+                                let nb = b + hpB * cMult * midMask;
+
+                                if (clipOutput) {
+                                    nr = Math.max(0, Math.min(255, nr));
+                                    ng = Math.max(0, Math.min(255, ng));
+                                    nb = Math.max(0, Math.min(255, nb));
+                                }
+
+                                dst[p] = Math.round(nr);
+                                dst[p + 1] = Math.round(ng);
+                                dst[p + 2] = Math.round(nb);
+                            }
                         }
                     }
                 }

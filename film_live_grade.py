@@ -418,13 +418,24 @@ class HackAfterDarkLiveGrade:
             if highlight_tint != "Neutral" and highlight_intensity > 0.0:
                 out_image[..., :3] = out_image[..., :3] + highlight_weight * highlight_intensity * h_offset.view(1, 1, 1, 3)
 
-        # 6. Micro-Contrast / Clarity
-        mc_amount = max(micro_contrast, clarity)
-        if mc_amount > 0.0:
+        # 6. Micro-Contrast & Clarity
+        if micro_contrast > 0.0 or clarity > 0.0:
             img_perm = out_image.permute(0, 3, 1, 2)  # [B, C, H, W]
-            low_pass = F.avg_pool2d(img_perm, kernel_size=5, stride=1, padding=2)
-            high_pass = img_perm - low_pass
-            img_perm = img_perm + high_pass * (mc_amount * 1.2)
+
+            # A. Micro-Contrast: Fine 3x3 High-Pass Sharpening for fine textures & grain
+            if micro_contrast > 0.0:
+                low_pass_3x3 = F.avg_pool2d(img_perm, kernel_size=3, stride=1, padding=1)
+                high_pass_fine = img_perm - low_pass_3x3
+                img_perm = img_perm + high_pass_fine * (micro_contrast * 1.5)
+
+            # B. Clarity: Broad 11x11 Midtone-Masked Local Contrast for dimensional depth
+            if clarity > 0.0:
+                low_pass_11x11 = F.avg_pool2d(img_perm, kernel_size=11, stride=1, padding=5)
+                mid_pass = img_perm - low_pass_11x11
+                lum = 0.2126 * img_perm[:, 0:1] + 0.7152 * img_perm[:, 1:2] + 0.0722 * img_perm[:, 2:3]
+                midtone_mask = torch.clamp(1.0 - torch.abs(lum - 0.5) * 2.0, 0.0, 1.0)
+                img_perm = img_perm + mid_pass * midtone_mask * (clarity * 1.5)
+
             out_image = img_perm.permute(0, 2, 3, 1)
 
         # 5. Output Clipping
