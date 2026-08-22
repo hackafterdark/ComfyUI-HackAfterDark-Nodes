@@ -1217,39 +1217,35 @@ app.registerExtension({
                 }
 
                 if (clarity > 0.0) {
-                    const cMult = clarity * 2.0;
+                    const cMult = clarity * 0.5;
                     const copyData = new Uint8ClampedArray(dst);
-                    const rad = 10;
+                    const rad = 4; // 9x9 kernel
+                    const area = (rad * 2 + 1) * (rad * 2 + 1);
 
-                    for (let y = 0; y < H; y++) {
-                        for (let x = 0; x < W; x++) {
+                    for (let y = rad; y < H - rad; y++) {
+                        for (let x = rad; x < W - rad; x++) {
                             const p = (y * W + x) * 4;
                             const r = copyData[p], g = copyData[p + 1], b = copyData[p + 2];
                             const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
-
-                            // Bell curve midtone mask (1.0 at L=0.5, 0.0 at L=0 and L=1)
-                            const midMask = Math.max(0, 1.0 - Math.pow((lum - 0.5) * 2.0, 2.0));
+                            const midMask = Math.max(0, Math.min(1.0, 4.0 * lum * (1.0 - lum)));
 
                             if (midMask > 0.01) {
-                                let sumLum = 0;
-                                let cnt = 0;
-                                for (let dy = -rad; dy <= rad; dy += 4) {
-                                    const ny = Math.max(0, Math.min(H - 1, y + dy));
-                                    for (let dx = -rad; dx <= rad; dx += 4) {
-                                        const nx = Math.max(0, Math.min(W - 1, x + dx));
-                                        const np = (ny * W + nx) * 4;
-                                        const lr = copyData[np], lg = copyData[np + 1], lb = copyData[np + 2];
-                                        sumLum += (0.2126 * lr + 0.7152 * lg + 0.0722 * lb) / 255.0;
-                                        cnt++;
+                                let sumR = 0, sumG = 0, sumB = 0;
+                                for (let dy = -rad; dy <= rad; dy++) {
+                                    for (let dx = -rad; dx <= rad; dx++) {
+                                        const np = ((y + dy) * W + (x + dx)) * 4;
+                                        sumR += copyData[np];
+                                        sumG += copyData[np + 1];
+                                        sumB += copyData[np + 2];
                                     }
                                 }
-                                const localLum = sumLum / cnt;
-                                const lumDelta = lum - localLum;
-                                const cFactor = 1.0 + (lumDelta * midMask * cMult);
+                                const hpR = r - sumR / area;
+                                const hpG = g - sumG / area;
+                                const hpB = b - sumB / area;
 
-                                let nr = r * cFactor;
-                                let ng = g * cFactor;
-                                let nb = b * cFactor;
+                                let nr = r + hpR * midMask * cMult;
+                                let ng = g + hpG * midMask * cMult;
+                                let nb = b + hpB * midMask * cMult;
 
                                 if (clipOutput) {
                                     nr = Math.max(0, Math.min(255, nr));

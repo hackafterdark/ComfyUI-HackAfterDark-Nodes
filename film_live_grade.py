@@ -428,14 +428,13 @@ class HackAfterDarkLiveGrade:
                 high_pass_fine = img_perm - low_pass_3x3
                 img_perm = img_perm + high_pass_fine * (micro_contrast * 1.5)
 
-            # B. Clarity: Broad 21x21 Local Midtone Contrast Expansion (Lightroom-style local pop)
+            # B. Clarity: Smooth Midtone Local Contrast Boost (Lightroom-style natural pop)
             if clarity > 0.0:
+                low_pass_9x9 = F.avg_pool2d(img_perm, kernel_size=9, stride=1, padding=4)
+                mid_pass = img_perm - low_pass_9x9
                 lum = 0.2126 * img_perm[:, 0:1] + 0.7152 * img_perm[:, 1:2] + 0.0722 * img_perm[:, 2:3]
-                local_lum = F.avg_pool2d(lum, kernel_size=21, stride=1, padding=10)
-                lum_delta = lum - local_lum
-                midtone_mask = torch.clamp(1.0 - torch.pow((lum - 0.5) * 2.0, 2.0), 0.0, 1.0)
-                contrast_factor = 1.0 + (lum_delta * midtone_mask * clarity * 2.0)
-                img_perm = img_perm * contrast_factor
+                midtone_mask = torch.clamp(4.0 * lum * (1.0 - lum), 0.0, 1.0)
+                img_perm = img_perm + mid_pass * midtone_mask * (clarity * 0.5)
 
             out_image = img_perm.permute(0, 2, 3, 1)
 
