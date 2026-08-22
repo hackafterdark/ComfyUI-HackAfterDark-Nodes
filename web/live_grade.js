@@ -1,6 +1,37 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
+// Exact Parameter Min/Max Bounds Map matching film_live_grade.py
+const PARAM_BOUNDS = {
+    lut_strength: { min: 0.0, max: 1.0 },
+    strength: { min: 0.0, max: 1.0 },
+    exposure: { min: -3.0, max: 3.0 },
+    contrast: { min: 0.5, max: 1.5 },
+    black_lift: { min: -0.5, max: 0.5 },
+    hue: { min: -180.0, max: 180.0 },
+    saturation: { min: 0.0, max: 2.0 },
+    tint_green_magenta: { min: -1.0, max: 1.0 },
+    tint_amber_blue: { min: -1.0, max: 1.0 },
+    shadow_intensity: { min: 0.0, max: 1.0 },
+    highlight_intensity: { min: 0.0, max: 1.0 },
+    balance: { min: -1.0, max: 1.0 },
+    micro_contrast: { min: 0.0, max: 1.0 },
+    clarity: { min: 0.0, max: 1.0 }
+};
+
+function getWidgetBounds(widget) {
+    const name = widget.name;
+    if (PARAM_BOUNDS[name]) {
+        const b = PARAM_BOUNDS[name];
+        const min = widget.options?.min !== undefined ? widget.options.min : b.min;
+        const max = widget.options?.max !== undefined ? widget.options.max : b.max;
+        return { min, max };
+    }
+    const min = widget.options?.min !== undefined ? widget.options.min : 0.0;
+    const max = widget.options?.max !== undefined ? widget.options.max : 1.0;
+    return { min, max };
+}
+
 // Cache for fetched 3D LUT data
 const lutCache = new Map();
 let currentLightbox = null;
@@ -96,7 +127,7 @@ function sampleLut(r, g, b, lut) {
 
     return [
         c0[0] + dz * (c1[0] - c0[0]),
-        c0[1] + dz * (c1[1] - c0[1]),
+        c0[1] + dz * (c1[0] - c0[0]),
         c0[2] + dz * (c1[2] - c0[2])
     ];
 }
@@ -382,6 +413,452 @@ function findUpstreamImageUrl(node, visited = new Set()) {
     return findUpstreamImageUrl(originNode, visited);
 }
 
+// Helper to compute Left Control Stack Column width dynamically
+function getLeftColWidth(node) {
+    const w = node.size ? node.size[0] : 860;
+    return Math.max(260, Math.min(360, Math.floor(w * 0.42)));
+}
+
+// Bulletproof Widget Setup Function: Re-binds all custom handlers on every frame / configuration load
+function setupCustomWidgets(node) {
+    // 1. Patch LiteGraph canvas processNodeWidgets & processMouseMove globally
+    if (app.canvas && !app.canvas._hackafterdark_patched) {
+        app.canvas._hackafterdark_patched = true;
+
+        const origProcessNodeWidgets = app.canvas.processNodeWidgets;
+        app.canvas.processNodeWidgets = function (nodeRef, pos, event, active_widget) {
+            if (nodeRef && nodeRef.comfyClass === "HackAfterDarkLiveGrade") {
+                const lW = getLeftColWidth(nodeRef);
+                if (pos && pos[0] > lW + 5 && pos[1] >= 30) {
+                    // Click is in Right Column Preview Area below title bar! Block LiteGraph widget processing!
+                    return true;
+                }
+                const res = origProcessNodeWidgets ? origProcessNodeWidgets.apply(this, arguments) : false;
+                // Permanently clear LiteGraph's default node_widget_drag so LiteGraph built-in slider drag NEVER runs!
+                this.node_widget_drag = null;
+                return res;
+            }
+            if (origProcessNodeWidgets) {
+                return origProcessNodeWidgets.apply(this, arguments);
+            }
+            return false;
+        };
+
+        const origProcessMouseMove = app.canvas.processMouseMove;
+        app.canvas.processMouseMove = function (e) {
+            // Intercept mouse move to neutralize any stray LiteGraph widget drag state for LiveGrade
+            if (this.node_widget_drag && this.node_widget_drag[0] && this.node_widget_drag[0].comfyClass === "HackAfterDarkLiveGrade") {
+                this.node_widget_drag = null;
+            }
+            if (origProcessMouseMove) return origProcessMouseMove.apply(this, arguments);
+        };
+    }
+
+    if (!node.widgets || node.widgets.length === 0) return;
+    const leftColW = getLeftColWidth(node);
+
+    node.widgets.forEach(widget => {
+        if (!widget.origType) {
+            widget.origType = widget.type;
+        }
+
+        // Restrict HTML DOM elements overlay width to left control column if created by ComfyUI
+        if (widget.element) {
+            widget.element.style.width = (leftColW - 24) + "px";
+            widget.element.style.maxWidth = (leftColW - 24) + "px";
+        }
+        if (widget.inputEl) {
+            widget.inputEl.style.width = (leftColW - 24) + "px";
+            widget.inputEl.style.maxWidth = (leftColW - 24) + "px";
+        }
+
+        widget.width = leftColW - 24;
+
+        // Override widget.type to custom so LiteGraph NEVER draws a 100%-wide built-in background box
+        if (["tint_green_magenta", "tint_amber_blue", "hue"].includes(widget.name)) {
+            widget.type = "custom_spectrum_slider";
+        } else {
+            widget.type = "custom_livegrade_widget";
+        }
+
+        widget.computeSize = function (width) {
+            const lW = getLeftColWidth(node);
+            const isSpectrum = ["hue", "tint_green_magenta", "tint_amber_blue"].includes(this.name);
+            return [lW, isSpectrum ? 38 : 22];
+        };
+
+        // Shared Helper to start global 1:1 window pointer dragging
+        const startSliderDrag = (targetWidget, targetNode, initialPos, event) => {
+            const margin = 12;
+            const lW = getLeftColWidth(targetNode);
+            const wW = lW - margin * 2;
+            const relX = Math.max(0, Math.min(wW, initialPos[0] - margin));
+            const pct = relX / wW;
+
+            const { min, max } = getWidgetBounds(targetWidget);
+            let rawVal = Math.max(min, Math.min(max, min + pct * (max - min)));
+
+            targetWidget.value = rawVal;
+            if (targetWidget.callback) targetWidget.callback(targetWidget.value, targetNode);
+            targetNode.updateClientLivePreview();
+            targetNode.setDirtyCanvas(true, true);
+
+            targetNode.activeDraggingWidget = targetWidget;
+            targetNode.mouseDownPos = [event.clientX, event.clientY];
+            targetNode.isClickOnly = true;
+
+            if (app.canvas) app.canvas.node_widget_drag = null;
+
+            const handleWindowPointerMove = (e) => {
+                if (!targetNode.activeDraggingWidget) return;
+
+                if (targetNode.mouseDownPos) {
+                    const dist = Math.hypot(e.clientX - targetNode.mouseDownPos[0], e.clientY - targetNode.mouseDownPos[1]);
+                    if (dist > 3) {
+                        targetNode.isClickOnly = false;
+                    }
+                }
+
+                const canvasElem = app.canvas ? app.canvas.canvas : null;
+                if (!canvasElem || !app.canvas.ds) return;
+
+                const rect = canvasElem.getBoundingClientRect();
+                const scale = app.canvas.ds.scale || 1.0;
+                const offset = app.canvas.ds.offset || [0, 0];
+
+                const canvasX = (e.clientX - rect.left) / scale - offset[0];
+                const nodeX = canvasX - targetNode.pos[0];
+
+                const currentLW = getLeftColWidth(targetNode);
+                const trackW = currentLW - margin * 2;
+
+                const rX = Math.max(0, Math.min(trackW, nodeX - margin));
+                const p = rX / trackW;
+
+                const w = targetNode.activeDraggingWidget;
+                const { min, max } = getWidgetBounds(w);
+                let val = Math.max(min, Math.min(max, min + p * (max - min)));
+
+                w.value = val;
+                if (w.callback) w.callback(w.value, targetNode);
+                targetNode.updateClientLivePreview();
+                targetNode.setDirtyCanvas(true, true);
+
+                if (app.canvas) app.canvas.node_widget_drag = null;
+            };
+
+            const handleWindowPointerUp = (e) => {
+                window.removeEventListener("pointermove", handleWindowPointerMove);
+                window.removeEventListener("pointerup", handleWindowPointerUp);
+
+                if (!targetNode.activeDraggingWidget) return;
+
+                const w = targetNode.activeDraggingWidget;
+                const isClick = targetNode.isClickOnly;
+
+                targetNode.activeDraggingWidget = null;
+                targetNode.mouseDownPos = null;
+                targetNode.isClickOnly = false;
+
+                if (app.canvas) app.canvas.node_widget_drag = null;
+
+                // Single Click Prompt Dialog to type exact value
+                if (isClick && w && (w.origType === "number" || w.origType === "slider" || typeof w.value === "number")) {
+                    const canvasObj = app.canvas;
+                    if (canvasObj && canvasObj.prompt) {
+                        canvasObj.prompt("Value", w.value, (val) => {
+                            const num = parseFloat(val);
+                            if (!isNaN(num)) {
+                                const { min, max } = getWidgetBounds(w);
+                                let clamped = Math.max(min, Math.min(max, num));
+                                w.value = clamped;
+                                if (w.callback) w.callback(w.value, targetNode);
+                                targetNode.updateClientLivePreview();
+                                targetNode.setDirtyCanvas(true, true);
+                            }
+                        }, e);
+                    }
+                }
+
+                targetNode.setDirtyCanvas(true, true);
+            };
+
+            window.addEventListener("pointermove", handleWindowPointerMove);
+            window.addEventListener("pointerup", handleWindowPointerUp);
+        };
+
+        if (["tint_green_magenta", "tint_amber_blue", "hue"].includes(widget.name)) {
+            widget.draw = function (ctx, nodeRef, widget_width, y, widget_height) {
+                const lW = getLeftColWidth(nodeRef || node);
+                const margin = 12;
+                const trackX = margin;
+                const trackY = y + 18;
+                const trackW = lW - margin * 2;
+                const trackH = 14;
+
+                ctx.save();
+
+                // 1. Left Label Header
+                ctx.font = "bold 11px Inter, sans-serif";
+                ctx.fillStyle = "#CCCCCC";
+                ctx.textAlign = "left";
+                const displayName = this.name.toUpperCase().replace(/_/g, " ");
+                ctx.fillText(displayName, trackX, y + 12);
+
+                // 2. Right Side: Value Display
+                const val = this.value !== undefined ? this.value : 0;
+                let valStr = "";
+                if (this.name === "hue") {
+                    valStr = Math.round(val) + "°";
+                } else {
+                    valStr = Number(val).toFixed(2);
+                }
+
+                ctx.font = "bold 11px Inter, sans-serif";
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#10B981";
+                ctx.fillText(valStr, trackX + trackW, y + 12);
+
+                // 3. Thick Spectrum Color Track
+                const grad = ctx.createLinearGradient(trackX, 0, trackX + trackW, 0);
+                if (this.name === "tint_green_magenta") {
+                    grad.addColorStop(0.00, "#10B981");
+                    grad.addColorStop(0.50, "#374151");
+                    grad.addColorStop(1.00, "#EC4899");
+                } else if (this.name === "tint_amber_blue") {
+                    grad.addColorStop(0.00, "#F59E0B");
+                    grad.addColorStop(0.50, "#374151");
+                    grad.addColorStop(1.00, "#3B82F6");
+                } else if (this.name === "hue") {
+                    grad.addColorStop(0.00, "#FF0000");
+                    grad.addColorStop(0.17, "#FFFF00");
+                    grad.addColorStop(0.33, "#00FF00");
+                    grad.addColorStop(0.50, "#00FFFF");
+                    grad.addColorStop(0.67, "#0000FF");
+                    grad.addColorStop(0.83, "#FF00FF");
+                    grad.addColorStop(1.00, "#FF0000");
+                }
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.roundRect(trackX, trackY, trackW, trackH, 6);
+                ctx.fill();
+
+                // Center Zero Tick Mark
+                const centerX = trackX + trackW / 2;
+                ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+                ctx.fillRect(centerX - 1, trackY, 2, trackH);
+
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // 4. Indicator Thumb
+                const { min, max } = getWidgetBounds(this);
+                const pct = Math.max(0, Math.min(1, (val - min) / (max - min)));
+
+                const markerX = trackX + pct * trackW;
+                const markerY = trackY - 2;
+                const markerW = 6;
+                const markerH = trackH + 4;
+
+                ctx.fillStyle = "#FFFFFF";
+                ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                ctx.shadowBlur = 4;
+                ctx.beginPath();
+                ctx.roundRect(markerX - markerW / 2, markerY, markerW, markerH, 3);
+                ctx.fill();
+
+                ctx.strokeStyle = "#111827";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.restore();
+            };
+
+            widget.mouse = function (event, pos, nodeRef) {
+                const targetNode = nodeRef || node;
+                const lW = getLeftColWidth(targetNode);
+
+                // Hard Lock: Return true for Right Column clicks so LiteGraph fallback never runs!
+                if (pos[0] > lW + 5) {
+                    if (app.canvas) app.canvas.node_widget_drag = null;
+                    return true;
+                }
+
+                if (event.type === "pointerdown" || event.type === "mousedown") {
+                    startSliderDrag(this, targetNode, pos, event);
+                    return true;
+                }
+                return false;
+            };
+        } else {
+            widget.draw = function (ctx, nodeRef, widget_width, y, widget_height) {
+                const lW = getLeftColWidth(nodeRef || node);
+                const margin = 12;
+                const wX = margin;
+                const wW = lW - margin * 2;
+                const h = widget_height || 22;
+
+                ctx.save();
+
+                // Modern Pill Container Box (Rendered strictly inside leftColW)
+                ctx.fillStyle = "rgba(24, 27, 35, 0.88)";
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(wX, y + 1, wW, h - 2, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                const displayName = this.name.toUpperCase().replace(/_/g, " ");
+                const wType = this.origType || this.type;
+
+                // A. Combo / Dropdown Widget
+                if (wType === "combo" || this.options?.values) {
+                    ctx.font = "bold 11px Inter, sans-serif";
+                    ctx.fillStyle = "#CCCCCC";
+                    ctx.textAlign = "left";
+                    ctx.fillText(displayName, wX + 8, y + h / 2 + 4);
+
+                    ctx.font = "600 11px Inter, sans-serif";
+                    ctx.fillStyle = "#10B981";
+                    ctx.textAlign = "right";
+                    const strVal = String(this.value ?? "");
+                    const maxChars = Math.floor(wW / 14);
+                    const truncVal = strVal.length > maxChars ? strVal.substring(0, maxChars - 2) + "…" : strVal;
+                    ctx.fillText(truncVal + "  ▼", wX + wW - 8, y + h / 2 + 4);
+                }
+                // B. Toggle (Boolean) Widget
+                else if (wType === "toggle" || typeof this.value === "boolean") {
+                    ctx.font = "bold 11px Inter, sans-serif";
+                    ctx.fillStyle = "#CCCCCC";
+                    ctx.textAlign = "left";
+                    ctx.fillText(displayName, wX + 8, y + h / 2 + 4);
+
+                    const isTrue = Boolean(this.value);
+                    const tW = 32;
+                    const tH = 15;
+                    const tX = wX + wW - tW - 6;
+                    const tY = y + (h - tH) / 2;
+
+                    ctx.fillStyle = isTrue ? "#10B981" : "#374151";
+                    ctx.beginPath();
+                    ctx.roundRect(tX, tY, tW, tH, 8);
+                    ctx.fill();
+
+                    const kR = 5;
+                    const kX = isTrue ? tX + tW - kR - 3 : tX + kR + 3;
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.beginPath();
+                    ctx.arc(kX, tY + tH / 2, kR, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                // C. Button Widget
+                else if (wType === "button") {
+                    ctx.font = "bold 11px Inter, sans-serif";
+                    ctx.fillStyle = "#F3F4F6";
+                    ctx.textAlign = "center";
+                    ctx.fillText(this.label || displayName, wX + wW / 2, y + h / 2 + 4);
+                }
+                // D. Number / Slider Widget
+                else {
+                    const { min, max } = getWidgetBounds(this);
+                    const val = Number(this.value ?? min);
+                    const pct = Math.max(0, Math.min(1, (val - min) / (max - min)));
+
+                    // Filled progress bar inside track
+                    ctx.fillStyle = "rgba(16, 185, 129, 0.25)";
+                    ctx.beginPath();
+                    ctx.roundRect(wX + 1, y + 2, (wW - 2) * pct, h - 4, 3);
+                    ctx.fill();
+
+                    // White Indicator Thumb Knob (Same 1:1 cursor alignment as Color Spectrum Sliders!)
+                    const markerX = wX + pct * wW;
+                    const markerW = 4;
+                    const markerH = h - 2;
+
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+                    ctx.shadowBlur = 4;
+                    ctx.beginPath();
+                    ctx.roundRect(markerX - markerW / 2, y + 1, markerW, markerH, 2);
+                    ctx.fill();
+
+                    ctx.font = "bold 11px Inter, sans-serif";
+                    ctx.fillStyle = "#CCCCCC";
+                    ctx.textAlign = "left";
+                    ctx.fillText(displayName, wX + 8, y + h / 2 + 4);
+
+                    ctx.font = "bold 11px Inter, sans-serif";
+                    ctx.fillStyle = "#10B981";
+                    ctx.textAlign = "right";
+                    const valStr = typeof val === "number" ? val.toFixed(2) : String(val);
+                    ctx.fillText(valStr, wX + wW - 8, y + h / 2 + 4);
+                }
+
+                ctx.restore();
+            };
+
+            widget.mouse = function (event, pos, nodeRef) {
+                const targetNode = nodeRef || node;
+                const lW = getLeftColWidth(targetNode);
+                const wType = this.origType || this.type;
+
+                // Hard Lock: Return true for Right Column clicks so LiteGraph fallback never runs!
+                if (pos[0] > lW + 5) {
+                    if (app.canvas) app.canvas.node_widget_drag = null;
+                    return true;
+                }
+
+                if (event.type === "pointerdown" || event.type === "mousedown") {
+                    // Button Click
+                    if (wType === "button") {
+                        if (this.callback) this.callback(this, targetNode, pos, event);
+                        if (app.canvas) app.canvas.node_widget_drag = null;
+                        return true;
+                    }
+                    // Toggle Click
+                    if (wType === "toggle" || typeof this.value === "boolean") {
+                        this.value = !this.value;
+                        if (this.callback) this.callback(this.value, targetNode);
+                        targetNode.updateClientLivePreview();
+                        targetNode.setDirtyCanvas(true, true);
+                        if (app.canvas) app.canvas.node_widget_drag = null;
+                        return true;
+                    }
+                    // Combo Dropdown Click
+                    if (wType === "combo" || this.options?.values) {
+                        const values = this.options?.values;
+                        if (Array.isArray(values) && values.length > 0) {
+                            const canvas = app.canvas;
+                            if (canvas && canvas.showWidgetOptions) {
+                                canvas.showWidgetOptions(this, event);
+                            } else {
+                                const current = this.value;
+                                const idx = values.indexOf(current);
+                                const next = values[(idx + 1) % values.length];
+                                this.value = next;
+                                if (this.callback) this.callback(this.value, targetNode);
+                                targetNode.updateClientLivePreview();
+                                targetNode.setDirtyCanvas(true, true);
+                            }
+                        }
+                        if (app.canvas) app.canvas.node_widget_drag = null;
+                        return true;
+                    }
+
+                    // Smooth 1:1 Direct Window Pointer Dragging for All Float Sliders
+                    startSliderDrag(this, targetNode, pos, event);
+                    return true;
+                }
+
+                return false;
+            };
+        }
+    });
+}
+
 app.registerExtension({
     name: "HackAfterDark.LiveGrade",
     async nodeCreated(node) {
@@ -389,6 +866,21 @@ app.registerExtension({
 
         // Disable standard ComfyUI default image rendering overlay
         node.imgs = null;
+
+        // Interactive Preview Mode & Layout State
+        node.previewMode = "graded_only"; // 'graded_only', 'dual_view', 'split_wipe'
+        node.splitWipeRatio = 0.5;        // 0.0 (Original) to 1.0 (Graded)
+        node.isDraggingWipe = false;
+        node.activeDraggingWidget = null;
+        node.mouseDownPos = null;
+        node.isClickOnly = false;
+
+        // Default side-by-side node dimensions (~860px wide x 680px tall)
+        const defaultW = 860;
+        const defaultH = 680;
+        if (!node.size || node.size[0] < defaultW || node.size[1] < defaultH) {
+            node.setSize([Math.max(node.size ? node.size[0] : 0, defaultW), Math.max(node.size ? node.size[1] : 0, defaultH)]);
+        }
 
         // Initialize state for client-side offscreen rendering
         node.liveGradeState = {
@@ -429,8 +921,8 @@ app.registerExtension({
                 balance: 0.0,
                 micro_contrast: 0.0,
                 clarity: 0.0,
-                output_original: true,
-                clip_output: true
+                clip_output: true,
+                output_original: true
             };
             (node.widgets || []).forEach(w => {
                 if (defaults[w.name] !== undefined) {
@@ -438,128 +930,6 @@ app.registerExtension({
                 }
             });
             node.updateClientLivePreview();
-        });
-
-        // Setup custom widget drawers & mouse handlers for color sliders (tint_green_magenta, tint_amber_blue, hue)
-        (node.widgets || []).forEach(widget => {
-            if (["tint_green_magenta", "tint_amber_blue", "hue"].includes(widget.name)) {
-                // Custom widget type for smooth 60fps spectrum rendering & precise micro-dragging
-                widget.type = "custom_spectrum_slider";
-
-                widget.draw = function(ctx, nodeRef, widget_width, y, widget_height) {
-                    const margin = 12;
-                    const trackX = margin;
-                    const trackY = y + 18;
-                    const trackW = widget_width - margin * 2;
-                    const trackH = 14;
-
-                    ctx.save();
-
-                    // 1. Left Label Header
-                    ctx.font = "bold 11px Inter, sans-serif";
-                    ctx.fillStyle = "#CCCCCC";
-                    ctx.textAlign = "left";
-                    const displayName = widget.name.toUpperCase().replace(/_/g, " ");
-                    ctx.fillText(displayName, trackX, y + 12);
-
-                    // 2. Right Side: Value Display
-                    const val = widget.value !== undefined ? widget.value : 0;
-                    let valStr = "";
-                    if (widget.name === "hue") {
-                        valStr = Math.round(val) + "°";
-                    } else {
-                        valStr = Number(val).toFixed(2);
-                    }
-
-                    ctx.font = "bold 11px Inter, sans-serif";
-                    ctx.textAlign = "right";
-                    ctx.fillStyle = "#10B981";
-                    ctx.fillText(valStr, trackX + trackW, y + 12);
-
-                    // 3. Thick Spectrum Color Track
-                    const grad = ctx.createLinearGradient(trackX, 0, trackX + trackW, 0);
-                    if (widget.name === "tint_green_magenta") {
-                        grad.addColorStop(0.00, "#10B981"); // Emerald Green (-1.0)
-                        grad.addColorStop(0.50, "#374151"); // Neutral (0.0)
-                        grad.addColorStop(1.00, "#EC4899"); // Magenta (+1.0)
-                    } else if (widget.name === "tint_amber_blue") {
-                        grad.addColorStop(0.00, "#F59E0B"); // Warm Amber (-1.0)
-                        grad.addColorStop(0.50, "#374151"); // Neutral (0.0)
-                        grad.addColorStop(1.00, "#3B82F6"); // Teal/Blue (+1.0)
-                    } else if (widget.name === "hue") {
-                        grad.addColorStop(0.00, "#FF0000");
-                        grad.addColorStop(0.17, "#FFFF00");
-                        grad.addColorStop(0.33, "#00FF00");
-                        grad.addColorStop(0.50, "#00FFFF");
-                        grad.addColorStop(0.67, "#0000FF");
-                        grad.addColorStop(0.83, "#FF00FF");
-                        grad.addColorStop(1.00, "#FF0000");
-                    }
-
-                    ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.roundRect(trackX, trackY, trackW, trackH, 6);
-                    ctx.fill();
-
-                    // Center Zero Tick Mark
-                    const centerX = trackX + trackW / 2;
-                    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-                    ctx.fillRect(centerX - 1, trackY, 2, trackH);
-
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-
-                    // 4. Glowing White Indicator Thumb / Marker Bar
-                    const min = widget.options?.min ?? (widget.name === "hue" ? -180 : -1);
-                    const max = widget.options?.max ?? (widget.name === "hue" ? 180 : 1);
-                    const pct = Math.max(0, Math.min(1, (val - min) / (max - min)));
-
-                    const markerX = trackX + pct * trackW;
-                    const markerY = trackY - 2;
-                    const markerW = 6;
-                    const markerH = trackH + 4;
-
-                    ctx.fillStyle = "#FFFFFF";
-                    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-                    ctx.shadowBlur = 4;
-                    ctx.beginPath();
-                    ctx.roundRect(markerX - markerW / 2, markerY, markerW, markerH, 3);
-                    ctx.fill();
-
-                    ctx.strokeStyle = "#111827";
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-
-                    ctx.restore();
-                };
-
-                widget.computeSize = function(width) {
-                    return [width || 300, 38];
-                };
-
-                // Mouse Drag Handler (Linear continuous calculation for precise micro-adjustments like 0.01)
-                widget.mouse = function(event, pos, nodeRef) {
-                    const margin = 12;
-                    const trackW = nodeRef.size[0] - margin * 2;
-                    const min = this.options?.min ?? (this.name === "hue" ? -180 : -1);
-                    const max = this.options?.max ?? (this.name === "hue" ? 180 : 1);
-
-                    if (event.type === "pointerdown" || event.type === "mousedown" || event.type === "pointermove" || event.type === "mousemove") {
-                        if (event.type.includes("move") && event.buttons !== 1) return false;
-                        
-                        const relX = Math.max(0, Math.min(trackW, pos[0] - margin));
-                        const pct = relX / trackW;
-                        const rawVal = min + pct * (max - min);
-
-                        this.value = rawVal;
-                        if (nodeRef.updateClientLivePreview) nodeRef.updateClientLivePreview();
-                        if (nodeRef.setDirtyCanvas) nodeRef.setDirtyCanvas(true, true);
-                        return true;
-                    }
-                    return false;
-                };
-            }
         });
 
         // Function to insert dedicated reset button directly beneath its corresponding color control
@@ -591,6 +961,37 @@ app.registerExtension({
             if (w) w.value = 0.0;
             node.updateClientLivePreview();
         });
+
+        // Bind custom widget logic immediately
+        setupCustomWidgets(node);
+
+        // Bind custom widget logic when LiteGraph restores workflow configuration
+        const origOnConfigure = node.onConfigure;
+        node.onConfigure = function (info) {
+            if (origOnConfigure) origOnConfigure.apply(this, arguments);
+            setupCustomWidgets(this);
+        };
+
+        // Intercept LiteGraph widget hit-testing so Right Column clicks never trigger widgets
+        node.findWidget = function (pos) {
+            const leftColW = getLeftColWidth(this);
+
+            // If click is in Right Column (Preview Area), return null so LiteGraph DOES NOT trigger any widget
+            if (pos[0] > leftColW + 5) {
+                return null;
+            }
+
+            if (!this.widgets) return null;
+            for (let i = 0; i < this.widgets.length; i++) {
+                const w = this.widgets[i];
+                if (w.last_y === undefined) continue;
+                const wH = w.computeSize ? w.computeSize(leftColW)[1] : 22;
+                if (pos[1] >= w.last_y && pos[1] <= w.last_y + wH) {
+                    return w;
+                }
+            }
+            return null;
+        };
 
         // Client-Side Real-Time Color Grading Engine
         node.updateClientLivePreview = async function () {
@@ -852,11 +1253,6 @@ app.registerExtension({
                 state.currentUrl = url;
                 state.hasImage = true;
 
-                const minHeight = 650;
-                if (this.size[1] < minHeight) {
-                    this.setSize([Math.max(this.size[0], 340), minHeight]);
-                }
-
                 this.updateClientLivePreview();
             };
             img.src = url;
@@ -880,40 +1276,129 @@ app.registerExtension({
             };
         });
 
-        // Mouse click handler for Lightbox
+        // Helper to get Right Column Preview Geometry
+        node.getRightColumnBounds = function () {
+            const leftColW = getLeftColWidth(this);
+            const margin = 10;
+            const rx = leftColW + margin;
+            const ry = 30; // Below node title header bar
+            const rw = this.size[0] - rx - margin;
+            const rh = this.size[1] - ry - margin;
+            return { rx, ry, rw, rh, leftColW };
+        };
+
+        // Helper to calculate Mode Switcher Pill geometry
+        node.getPillsGeometry = function () {
+            const { rx, ry, rw } = this.getRightColumnBounds();
+            const pillY = ry + 8;
+            const pillH = 26;
+            const gap = 6;
+            const totalW = Math.max(180, rw - 20);
+            const pillW = (totalW - gap * 2) / 3;
+
+            const p1 = { x: rx + 10, y: pillY, w: pillW, h: pillH, mode: "graded_only", label: "Graded Only" };
+            const p2 = { x: rx + 10 + pillW + gap, y: pillY, w: pillW, h: pillH, mode: "dual_view", label: "Dual View" };
+            const p3 = { x: rx + 10 + (pillW + gap) * 2, y: pillY, w: pillW, h: pillH, mode: "split_wipe", label: "Split Wipe" };
+            return [p1, p2, p3];
+        };
+
+        // Mouse Event Handler for Right-Column Controls, Mode Switcher Pills & Split Wipe Dragging
         const origOnMouseDown = node.onMouseDown;
         node.onMouseDown = function (event, pos, canvas) {
             this.imgs = null; // Always suppress standard ComfyUI image preview click capture
 
-            let widgetsHeight = 650;
-            if (this.widgets && this.widgets.length > 0) {
-                const lastWidget = this.widgets[this.widgets.length - 1];
-                widgetsHeight = lastWidget.last_y ? lastWidget.last_y + 30 : 650;
+            const leftColW = getLeftColWidth(this);
+            const { rx, ry, rw, rh } = this.getRightColumnBounds();
+
+            // Allow LiteGraph node resize handle (bottom-right corner ~25px) to work normally!
+            if (pos[0] > this.size[0] - 25 && pos[1] > this.size[1] - 25) {
+                return false;
             }
 
-            const pad = 12;
-            const boxX = pad;
-            const boxY = widgetsHeight;
-            const boxW = this.size[0] - pad * 2;
-            const boxH = this.size[1] - widgetsHeight - pad;
+            // Check if click is inside Right Column Area
+            if (pos[0] > leftColW + 5) {
+                if (app.canvas) app.canvas.node_widget_drag = null;
 
-            if (pos[0] >= boxX && pos[0] <= boxX + boxW && pos[1] >= boxY && pos[1] <= boxY + boxH) {
-                if (!this.liveGradeState || !this.liveGradeState.hasImage) {
-                    this.checkUpstreamImage();
-                }
-                if (this.liveGradeState && this.liveGradeState.hasImage) {
-                    if (pos[0] < boxX + boxW / 2) {
-                        openLightbox("before", this);
-                    } else {
-                        openLightbox("after", this);
+                // 1. Check Mode Switcher Pills Click
+                const pills = this.getPillsGeometry();
+                for (const p of pills) {
+                    if (pos[0] >= p.x && pos[0] <= p.x + p.w && pos[1] >= p.y && pos[1] <= p.y + p.h) {
+                        this.previewMode = p.mode;
+                        this.setDirtyCanvas(true, true);
+                        return true;
                     }
-                    return true;
                 }
+
+                // 2. Check Viewport Click (Lightbox / Split Wipe Drag)
+                const viewportY = ry + 40;
+                const viewportH = rh - 50;
+
+                if (pos[0] >= rx + 10 && pos[0] <= rx + rw - 10 && pos[1] >= viewportY && pos[1] <= viewportY + viewportH) {
+                    if (!this.liveGradeState || !this.liveGradeState.hasImage) {
+                        this.checkUpstreamImage();
+                    }
+
+                    if (this.previewMode === "split_wipe") {
+                        this.isDraggingWipe = true;
+                        const relX = Math.max(0, Math.min(rw - 20, pos[0] - (rx + 10)));
+                        this.splitWipeRatio = relX / (rw - 20);
+                        this.setDirtyCanvas(true, true);
+                        return true;
+                    } else if (this.liveGradeState && this.liveGradeState.hasImage) {
+                        if (this.previewMode === "dual_view" && pos[0] < rx + rw / 2) {
+                            openLightbox("before", this);
+                        } else {
+                            openLightbox("after", this);
+                        }
+                        return true;
+                    }
+                }
+
+                // Consume click inside right column panel to prevent any stray widget activation
+                return true;
             }
 
             if (origOnMouseDown) {
                 return origOnMouseDown.apply(this, arguments);
             }
+            return false;
+        };
+
+        // Mouse Move for Split Wipe Dragging inside 40% Column
+        const origOnMouseMove = node.onMouseMove;
+        node.onMouseMove = function (event, pos, canvas) {
+            if (this.isDraggingWipe) {
+                const { rx, rw } = this.getRightColumnBounds();
+                const relX = Math.max(0, Math.min(rw - 20, pos[0] - (rx + 10)));
+                this.splitWipeRatio = relX / (rw - 20);
+                this.setDirtyCanvas(true, true);
+                return true;
+            }
+
+            if (this.activeDraggingWidget) {
+                if (app.canvas) app.canvas.node_widget_drag = null;
+                return true;
+            }
+
+            if (origOnMouseMove) return origOnMouseMove.apply(this, arguments);
+            return false;
+        };
+
+        // Mouse Up to release Split Wipe Dragging
+        const origOnMouseUp = node.onMouseUp;
+        node.onMouseUp = function (event, pos, canvas) {
+            if (this.isDraggingWipe) {
+                this.isDraggingWipe = false;
+                this.setDirtyCanvas(true, true);
+                return true;
+            }
+
+            if (this.activeDraggingWidget) {
+                if (app.canvas) app.canvas.node_widget_drag = null;
+                return true;
+            }
+
+            if (origOnMouseUp) return origOnMouseUp.apply(this, arguments);
             return false;
         };
 
@@ -967,28 +1452,26 @@ app.registerExtension({
                     state.currentUrl = imgUrl;
                     state.hasImage = true;
 
-                    const minHeight = 650;
-                    if (node.size[1] < minHeight) {
-                        node.setSize([Math.max(node.size[0], 340), minHeight]);
-                    }
-
                     node.updateClientLivePreview();
                 };
                 img.src = imgUrl;
             }
         };
 
-        // Custom Node Foreground Canvas Drawer
+        // Custom Node Foreground Canvas Drawer: Right-Column Viewport + 3 Preview Modes
         const origOnDrawForeground = node.onDrawForeground;
         node.onDrawForeground = function (ctx, canvas) {
             // Keep default image renderer disabled
             this.imgs = null;
 
+            // Re-enforce custom widget binding on every draw pass to prevent workflow load resets
+            setupCustomWidgets(this);
+
             if (origOnDrawForeground) origOnDrawForeground.apply(this, arguments);
 
             if (this.flags.collapsed) return;
 
-            // Draw sleek disabled overlays over shadow_intensity / highlight_intensity ONLY when their tint is Neutral
+            // 1. Draw sleek disabled overlays over shadow_intensity / highlight_intensity ONLY when their tint is Neutral
             const sTint = getWidgetVal("shadow_tint", "Neutral");
             const hTint = getWidgetVal("highlight_tint", "Neutral");
             const sIntW = this.widgets?.find(w => w.name === "shadow_intensity");
@@ -997,11 +1480,12 @@ app.registerExtension({
             const drawDisabledOverlay = (widget, text) => {
                 if (!widget || !widget.last_y) return;
                 ctx.save();
+                const leftW = getLeftColWidth(this);
                 const pad = 12;
                 const wX = pad;
                 const wY = widget.last_y;
-                const wW = this.size[0] - pad * 2;
-                const wH = 24;
+                const wW = leftW - pad * 2;
+                const wH = 22;
 
                 ctx.fillStyle = "rgba(22, 25, 33, 0.94)";
                 ctx.beginPath();
@@ -1027,31 +1511,56 @@ app.registerExtension({
                 drawDisabledOverlay(hTint, "(Select highlight tint to enable)");
             }
 
-            let widgetsHeight = 650;
-            if (this.widgets && this.widgets.length > 0) {
-                const lastWidget = this.widgets[this.widgets.length - 1];
-                widgetsHeight = lastWidget.last_y ? lastWidget.last_y + 30 : 650;
-            }
+            // 2. Right-Column Preview Viewport Setup
+            const { rx, ry, rw, rh, leftColW } = this.getRightColumnBounds();
 
-            const pad = 12;
-            const availableWidth = this.size[0] - pad * 2;
-            const availableHeight = this.size[1] - widgetsHeight - pad;
-
-            if (availableHeight < 80 || availableWidth < 120) return;
-
-            const boxX = pad;
-            const boxY = widgetsHeight;
-            const boxW = availableWidth;
-            const boxH = availableHeight;
+            if (rw < 140 || rh < 100) return;
 
             ctx.save();
-            ctx.fillStyle = "rgba(18, 20, 26, 0.85)";
+
+            // Right Column Background Panel
+            ctx.fillStyle = "rgba(18, 20, 26, 0.92)";
             ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.roundRect(boxX, boxY, boxW, boxH, 8);
+            ctx.roundRect(rx, ry, rw, rh, 8);
             ctx.fill();
             ctx.stroke();
+
+            // Vertical Divider Line between Left Controls & Right Preview
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(leftColW + 5, ry);
+            ctx.lineTo(leftColW + 5, ry + rh);
+            ctx.stroke();
+
+            // 3. Render Mode Switcher Pills Header
+            const pills = this.getPillsGeometry();
+            pills.forEach(p => {
+                const isActive = (this.previewMode || "graded_only") === p.mode;
+                ctx.fillStyle = isActive ? "#10B981" : "rgba(255, 255, 255, 0.08)";
+                ctx.beginPath();
+                ctx.roundRect(p.x, p.y, p.w, p.h, 13);
+                ctx.fill();
+
+                if (!isActive) {
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+
+                ctx.font = isActive ? "bold 11px Inter, sans-serif" : "600 11px Inter, sans-serif";
+                ctx.fillStyle = isActive ? "#FFFFFF" : "#9CA3AF";
+                ctx.textAlign = "center";
+                ctx.fillText(p.label, p.x + p.w / 2, p.y + p.h / 2 + 4);
+            });
+
+            // 4. Viewport Bounding Box
+            const vX = rx + 10;
+            const vY = ry + 42;
+            const vW = rw - 20;
+            const vH = rh - 50;
 
             const state = this.liveGradeState;
 
@@ -1062,50 +1571,100 @@ app.registerExtension({
 
             if (!state || !state.hasImage || !state.origCanvas || !state.gradedCanvas) {
                 ctx.fillStyle = "#8E9BAE";
-                ctx.font = "italic 11px Inter, sans-serif";
+                ctx.font = "italic 12px Inter, sans-serif";
                 ctx.textAlign = "center";
-                ctx.fillText("Connect an image node or run workflow once", boxX + boxW / 2, boxY + boxH / 2);
+                ctx.fillText("Connect an image node or run workflow once", vX + vW / 2, vY + vH / 2);
                 ctx.restore();
                 return;
             }
 
-            const thumbGap = 8;
-            const thumbW = (boxW - thumbGap - pad * 2) / 2;
-            const thumbH = boxH - pad * 2 - 20;
+            // Helper to draw Aspect-Fit Canvas
+            const drawAspectFit = (srcCanvas, targetX, targetY, targetW, targetH) => {
+                const aspect = srcCanvas.width / srcCanvas.height;
+                let fitW = targetW;
+                let fitH = targetW / aspect;
+                if (fitH > targetH) {
+                    fitH = targetH;
+                    fitW = targetH * aspect;
+                }
+                const offX = targetX + (targetW - fitW) / 2;
+                const offY = targetY + (targetH - fitH) / 2;
 
-            if (thumbW > 20 && thumbH > 20) {
-                const leftX = boxX + pad;
-                const leftY = boxY + pad + 20;
-                const rightX = leftX + thumbW + thumbGap;
-                const rightY = leftY;
+                ctx.drawImage(srcCanvas, offX, offY, fitW, fitH);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+                ctx.strokeRect(offX, offY, fitW, fitH);
+                return { offX, offY, fitW, fitH };
+            };
 
-                const drawAspectFitCanvas = (srcCanvas, x, y, w, h) => {
-                    const aspect = srcCanvas.width / srcCanvas.height;
-                    let targetW = w;
-                    let targetH = w / aspect;
-                    if (targetH > h) {
-                        targetH = h;
-                        targetW = h * aspect;
-                    }
-                    const offsetX = x + (w - targetW) / 2;
-                    const offsetY = y + (h - targetH) / 2;
+            const mode = this.previewMode || "graded_only";
 
-                    ctx.drawImage(srcCanvas, offsetX, offsetY, targetW, targetH);
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-                    ctx.strokeRect(offsetX, offsetY, targetW, targetH);
-                };
+            // MODE 1: Graded Only (100% Full Viewport Area)
+            if (mode === "graded_only") {
+                const bounds = drawAspectFit(state.gradedCanvas, vX, vY, vW, vH);
 
-                drawAspectFitCanvas(state.origCanvas, leftX, leftY, thumbW, thumbH);
-                drawAspectFitCanvas(state.gradedCanvas, rightX, rightY, thumbW, thumbH);
+                ctx.font = "bold 11px Inter, sans-serif";
+                ctx.textAlign = "left";
+                ctx.fillStyle = "#10B981";
+                ctx.fillText("COLOR GRADED", bounds.offX + 6, bounds.offY + 16);
+            }
+            // MODE 2: Dual View (Side-by-Side Comparison)
+            else if (mode === "dual_view") {
+                const gap = 8;
+                const subW = (vW - gap) / 2;
+
+                const bLeft = drawAspectFit(state.origCanvas, vX, vY, subW, vH);
+                const bRight = drawAspectFit(state.gradedCanvas, vX + subW + gap, vY, subW, vH);
 
                 ctx.font = "bold 11px Inter, sans-serif";
                 ctx.textAlign = "left";
 
                 ctx.fillStyle = "#8E9BAE";
-                ctx.fillText("ORIGINAL", leftX + 4, leftY - 6);
+                ctx.fillText("ORIGINAL", bLeft.offX + 6, bLeft.offY + 16);
 
                 ctx.fillStyle = "#10B981";
-                ctx.fillText("COLOR GRADED", rightX + 4, rightY - 6);
+                ctx.fillText("COLOR GRADED", bRight.offX + 6, bRight.offY + 16);
+            }
+            // MODE 3: Split Wipe (Full-Width Interactive Wipe Comparison)
+            else if (mode === "split_wipe") {
+                const bounds = drawAspectFit(state.gradedCanvas, vX, vY, vW, vH);
+                const wipeRatio = Math.max(0, Math.min(1, this.splitWipeRatio ?? 0.5));
+                const splitX = bounds.offX + bounds.fitW * wipeRatio;
+
+                // Draw Original Left Side
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(bounds.offX, bounds.offY, splitX - bounds.offX, bounds.fitH);
+                ctx.clip();
+                ctx.drawImage(state.origCanvas, bounds.offX, bounds.offY, bounds.fitW, bounds.fitH);
+                ctx.restore();
+
+                // Draw Interactive Vertical Split Handle Line
+                ctx.fillStyle = "#10B981";
+                ctx.shadowColor = "rgba(16, 185, 129, 0.8)";
+                ctx.shadowBlur = 8;
+                ctx.fillRect(splitX - 1, bounds.offY, 2, bounds.fitH);
+
+                // Handle Knob Button in Middle
+                const knobY = bounds.offY + bounds.fitH / 2;
+                ctx.fillStyle = "#10B981";
+                ctx.beginPath();
+                ctx.arc(splitX, knobY, 12, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "#FFFFFF";
+                ctx.font = "bold 11px Inter, sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("✂", splitX, knobY + 4);
+
+                // Labels
+                ctx.font = "bold 11px Inter, sans-serif";
+                ctx.textAlign = "left";
+                ctx.fillStyle = "#8E9BAE";
+                ctx.fillText("ORIGINAL", bounds.offX + 6, bounds.offY + 16);
+
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#10B981";
+                ctx.fillText("COLOR GRADED", bounds.offX + bounds.fitW - 6, bounds.offY + 16);
             }
 
             ctx.restore();
