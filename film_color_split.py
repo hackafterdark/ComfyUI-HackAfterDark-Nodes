@@ -71,6 +71,11 @@ class AfterDarkFilmColorSplit:
         balance=0.0,
         micro_contrast=0.15,
     ):
+        if not isinstance(shadow_tint, str) or shadow_tint in [0, "0", None] or shadow_tint not in ["Neutral", "Teal / Cyan", "Deep Blue", "Emerald Green", "Warm Sepia"]:
+            shadow_tint = "Neutral"
+        if not isinstance(highlight_tint, str) or highlight_tint in [0, "0", None] or highlight_tint not in ["Neutral", "Golden Amber", "Warm Yellow", "Peach Rose", "Cool Cyan"]:
+            highlight_tint = "Neutral"
+
         out_image = image.clone()
         B, H, W, C = out_image.shape
         device = out_image.device

@@ -125,9 +125,9 @@ class AfterDarkFilmLUT:
                 pass
 
         if not lut_map:
-            return ["No LUTs found"]
+            return ["None"]
 
-        return sorted(list(lut_map.keys()))
+        return ["None"] + sorted(list(lut_map.keys()))
 
     @classmethod
     def INPUT_TYPES(cls):

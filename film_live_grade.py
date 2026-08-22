@@ -160,9 +160,9 @@ class HackAfterDarkLiveGrade:
                 pass
 
         if not lut_map:
-            return ["No LUTs found"]
+            return ["None"]
 
-        return sorted(list(lut_map.keys()))
+        return ["None"] + sorted(list(lut_map.keys()))
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -320,6 +320,11 @@ class HackAfterDarkLiveGrade:
             output_original = kwargs["enable_preview"]
         if "strength" in kwargs:
             lut_strength = kwargs["strength"]
+
+        if not isinstance(shadow_tint, str) or shadow_tint in [0, "0", None] or shadow_tint not in ["Neutral", "Teal / Cyan", "Deep Blue", "Emerald Green", "Warm Sepia"]:
+            shadow_tint = "Neutral"
+        if not isinstance(highlight_tint, str) or highlight_tint in [0, "0", None] or highlight_tint not in ["Neutral", "Golden Amber", "Warm Yellow", "Peach Rose", "Cool Cyan"]:
+            highlight_tint = "Neutral"
 
         out_image = image.clone()
         B, H, W, C = out_image.shape

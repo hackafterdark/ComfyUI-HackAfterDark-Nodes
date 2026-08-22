@@ -166,6 +166,19 @@ class TestFilmLiveGrade(unittest.TestCase):
         self.assertGreater(out_img[0, 0, 0, 1].item(), 0.1) # Green boosted
         self.assertGreater(out_img[0, 0, 0, 2].item(), 0.1) # Blue boosted
 
+    def test_zero_tint_sanitization(self):
+        # Verify numeric 0 or invalid strings default to Neutral without throwing errors
+        img = torch.full((1, 8, 8, 3), 0.5, dtype=torch.float32)
+        res = self.node.apply_live_grade(
+            image=img,
+            lut_file="None",
+            shadow_tint=0,
+            highlight_tint="0",
+            output_original=False
+        )
+        self.assertIn("result", res)
+        self.assertEqual(res["result"][0].shape, img.shape)
+
     def test_micro_contrast(self):
         # Test applying micro_contrast high-pass sharpening to textured image
         img = torch.zeros((1, 16, 16, 3), dtype=torch.float32)

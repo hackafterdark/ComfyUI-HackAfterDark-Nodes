@@ -462,6 +462,20 @@ function setupCustomWidgets(node) {
             widget.origType = widget.type;
         }
 
+        // Ensure default values are enforced on initial placement
+        if (widget.name === "saturation" && (widget.value === 0 || widget.value === 0.0 || widget.value === undefined)) {
+            widget.value = 1.0;
+        }
+        if (widget.name === "contrast" && (widget.value === 0 || widget.value === 0.0 || widget.value === undefined)) {
+            widget.value = 1.0;
+        }
+        if (widget.name === "shadow_tint" && (widget.value === 0 || widget.value === "0" || !widget.value)) {
+            widget.value = "Neutral";
+        }
+        if (widget.name === "highlight_tint" && (widget.value === 0 || widget.value === "0" || !widget.value)) {
+            widget.value = "Neutral";
+        }
+
         // Restrict HTML DOM elements overlay width to left control column if created by ComfyUI
         if (widget.element) {
             widget.element.style.width = (leftColW - 24) + "px";
@@ -874,6 +888,22 @@ app.registerExtension({
         node.activeDraggingWidget = null;
         node.mouseDownPos = null;
         node.isClickOnly = false;
+
+        // Ensure default values are enforced on initial placement
+        const initialDefaults = {
+            saturation: 1.0,
+            contrast: 1.0,
+            lut_strength: 1.0,
+            shadow_tint: "Neutral",
+            highlight_tint: "Neutral"
+        };
+        (node.widgets || []).forEach(w => {
+            if (initialDefaults[w.name] !== undefined) {
+                if (w.value === undefined || w.value === null || w.value === 0 || w.value === "0" || w.value === 0.0) {
+                    w.value = initialDefaults[w.name];
+                }
+            }
+        });
 
         // Default side-by-side node dimensions (~860px wide x 680px tall)
         const defaultW = 860;
