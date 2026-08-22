@@ -212,6 +212,19 @@ An interactive live color grading node with real-time parameter reactivity and d
 - **Dual Thumbnail Preview Panel**: Canvas preview rendering comparing **ORIGINAL** vs. **LIVE GRADED** output directly on the node face.
 - **Standalone Safety**: Fully independent from `AfterDark Film LUT` so legacy project workflows remain untouched.
 
+### Micro Contrast vs. Clarity: What's the Difference?
+
+Both controls enhance spatial detail and local contrast, but they target different spatial frequencies and tonal regions:
+
+| Control | Spatial Scale | Tonal Scope | Visual Effect | Best Used For |
+| :--- | :--- | :--- | :--- | :--- |
+| **`MICRO CONTRAST`** | **Tiny $3 \times 3$ Pixels** (1px radius) | **Global** (All Pixels) | **Fine Detail Sharpening**: Crisp, pin-sharp detail extraction. | Film grain structure, hair strands, fabric weaves, skin pores, and fine text. |
+| **`CLARITY`** | **Broader $9 \times 9$ Pixels** (4px radius) | **Midtones Only** (`4 * L * (1 - L)`) | **Midtone Contour & Depth**: Local midtone contrast pop and 3D structure. | Facial structure, clothing folds, jawlines, and subject pop without sharpening shadow noise or blowing highlights. |
+
+> [!NOTE]
+> **Why do both controls feel like sharpening?**  
+> Both controls utilize spatial high-pass frequency math under the hood (subtracting local neighborhood averages from original pixels). Enhancing spatial edge gradients is naturally interpreted by the human brain as sharpening. `MICRO CONTRAST` focuses on 1-pixel micro textures globally, while `CLARITY` focuses on 4-pixel midtone contours.
+
 ---
 
 ## Credits
