@@ -1,7 +1,7 @@
 [project]
 name = "hackafterdark-nodes"
-description = "Custom ComfyUI nodes featuring AfterDark Film Grain & Emulsion, Procedural Film Optics & Light Leaks, Film Halation & Bloom, Film Color Split, Film Aspect Ratio Selector, and Google Gemini Prompter."
-version = "1.2.0"
+description = "Custom ComfyUI nodes featuring AfterDark LiveGrade, Film Grain & Emulsion, Procedural Film Optics & Light Leaks, Film Halation & Bloom, Film Color Split, Film Aspect Ratio Selector, and Google Gemini Prompter."
+version = "1.3.0"
 license = "MIT"
 requires-python = ">=3.8"
 dependencies = ["pyyaml", "requests", "torch", "numpy", "Pillow", "google-generativeai"]
